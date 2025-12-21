@@ -93,7 +93,9 @@ export class Hud {
         this.debugText.setDepth(HUD_DEPTH);
         this.debugText.setAlpha(0);
 
+        this.uiScale = 1;
         this.layout();
+        this.applyUiScale();
 
         this.resizeHandler = () => this.layout();
         this.scene.scale.on('resize', this.resizeHandler);
@@ -104,11 +106,12 @@ export class Hud {
     }
 
     layout() {
-        const { width } = this.scene.scale;
+        const { width, height } = this.scene.scale;
         const padding = UI.hudPadding;
+        const scale = this.uiScale || 1;
 
-        this.engineLabel.setPosition(padding, padding - 2);
-        this.engineWeaponText.setPosition(padding, padding + 16);
+        this.engineLabel.setPosition(padding * scale, (padding - 2) * scale);
+        this.engineWeaponText.setPosition(padding * scale, (padding + 16) * scale);
 
         this.engineBar = {
             x: padding + 70,
@@ -126,16 +129,41 @@ export class Hud {
             width: 180,
             height: 10
         };
-        this.pulseText.setPosition(padding, padding + 70);
+        this.pulseText.setPosition(padding * scale, (padding + 70) * scale);
 
-        this.timerText.setPosition(width * 0.5, padding);
-        this.waveText.setPosition(width * 0.5, padding + 22);
-        this.killText.setPosition(width - padding, padding);
-        this.mergeText.setPosition(width * 0.5, 120);
+        this.timerText.setPosition(width * 0.5 * scale, padding * scale);
+        this.waveText.setPosition(width * 0.5 * scale, (padding + 22) * scale);
+        this.killText.setPosition((width - padding) * scale, padding * scale);
+        this.mergeText.setPosition(width * 0.5 * scale, 120 * scale);
 
         if (this.debugText) {
-            this.debugText.setPosition(padding, this.scene.scale.height - 80);
+            this.debugText.setPosition(padding * scale, (height - 80) * scale);
         }
+    }
+
+    setUiScale(scale) {
+        const clamped = Math.max(0.6, Math.min(scale, 1.2));
+        if (Math.abs(clamped - this.uiScale) < 0.001) {
+            return;
+        }
+        this.uiScale = clamped;
+        this.applyUiScale();
+        this.layout();
+    }
+
+    applyUiScale() {
+        const scale = this.uiScale || 1;
+        this.engineHpGraphics.setScale(scale);
+        this.hpGraphics.setScale(scale);
+        this.pulseGraphics.setScale(scale);
+        this.engineLabel.setScale(scale);
+        this.engineWeaponText.setScale(scale);
+        this.timerText.setScale(scale);
+        this.killText.setScale(scale);
+        this.waveText.setScale(scale);
+        this.mergeText.setScale(scale);
+        this.pulseText.setScale(scale);
+        this.debugText.setScale(scale);
     }
 
     update(runTimeSeconds, waveStatus, deltaSeconds, overdriveState, engineWeaponState) {

@@ -42,6 +42,7 @@ export class DevConsole {
         this.bodyText.setDepth(CONSOLE_DEPTH + 1);
         this.bodyText.setOrigin(0.5, 0);
 
+        this.uiScale = 1;
         this.setVisible(false);
         this.layout();
         this.refreshText();
@@ -70,16 +71,36 @@ export class DevConsole {
 
     layout() {
         const { width, height } = this.scene.scale;
+        const scale = this.uiScale || 1;
         const panelWidth = Math.min(520, width * 0.9);
         const panelHeight = Math.min(360, height * 0.9);
         const panelX = width * 0.5;
         const panelY = height * 0.5;
 
-        this.panel.setPosition(panelX, panelY);
+        this.panel.setPosition(panelX * scale, panelY * scale);
         this.panel.setSize(panelWidth, panelHeight);
 
-        this.titleText.setPosition(panelX, panelY - panelHeight * 0.5 + 18);
-        this.bodyText.setPosition(panelX, panelY - panelHeight * 0.5 + 52);
+        this.titleText.setPosition(
+            panelX * scale,
+            (panelY - panelHeight * 0.5 + 18) * scale
+        );
+        this.bodyText.setPosition(
+            panelX * scale,
+            (panelY - panelHeight * 0.5 + 52) * scale
+        );
+
+        this.panel.setScale(scale);
+        this.titleText.setScale(scale);
+        this.bodyText.setScale(scale);
+    }
+
+    setUiScale(scale) {
+        const clamped = Math.max(0.6, Math.min(scale, 1.2));
+        if (Math.abs(clamped - this.uiScale) < 0.001) {
+            return;
+        }
+        this.uiScale = clamped;
+        this.layout();
     }
 
     setVisible(isVisible) {

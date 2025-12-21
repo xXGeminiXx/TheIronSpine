@@ -75,6 +75,7 @@ export class GameScene extends Phaser.Scene {
 
         this.createInitialCar();
         this.setupCamera();
+        this.applyUiScale();
 
         this.events.on('shutdown', this.cleanup, this);
     }
@@ -110,6 +111,7 @@ export class GameScene extends Phaser.Scene {
         this.updateOverdrive(deltaSeconds);
 
         this.updateCamera(deltaSeconds);
+        this.applyUiScale();
         this.updateGridVisibility();
         if (this.spawner.isVictoryReady()) {
             this.endRun('victory');
@@ -182,6 +184,13 @@ export class GameScene extends Phaser.Scene {
         // Keep the grid locked to world space so the train doesn't appear to drift off it.
         this.ground.tilePositionX = camera.scrollX;
         this.ground.tilePositionY = camera.scrollY;
+    }
+
+    applyUiScale() {
+        const camera = this.cameras.main;
+        const uiScale = camera.zoom > 0 ? 1 / camera.zoom : 1;
+        this.hud.setUiScale(uiScale);
+        this.devConsole.setUiScale(uiScale);
     }
 
     getZoomTarget() {
