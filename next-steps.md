@@ -1,6 +1,6 @@
 # Next Steps
 
-Timestamp (UTC): 2025-12-21T21:05:00Z
+Timestamp (UTC): 2025-12-21T21:20:00Z
 
 ## Checklist
 - [x] Replace extraction win with wave-clear progression (champion every 5th, boss every 10th).
@@ -26,5 +26,6 @@ Timestamp (UTC): 2025-12-21T21:05:00Z
 - Menu + settings + end screen, HUD shows wave status.
 - Higher-resolution rendering with smoothing; camera zoom scales with train length.
 - Pickups have clearer glow/outline; weapon hits flash; muzzle flashes added.
-- Dev console available on numpad decimal for spawn/debug shortcuts.
+- Dev console available on numpad decimal for spawn/debug shortcuts (hidden on touch devices).
+- Touch controls provide Drop/Pulse buttons + tap-to-boost on mobile.
 - Spawn padding scales with train length to keep composition readable.

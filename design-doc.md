@@ -598,6 +598,12 @@ Enemies exist to create pressure and force decisions. They should be:
 - **Death Screen**: Stats, Retry + Settings
 - **Victory Screen**: Stats, Play Again + Settings
 
+## Mobile Considerations
+- Touch input drives steering (tap-to-boost) and benefits from the existing pointer logic.
+- Small Drop/Pulse buttons appear near the bottom-left of the viewport on mobile devices.
+- Dev console/debug overlays are disabled on touch-first platforms to keep the UI clean.
+- UI/HUD scales with camera zoom so smaller screens still keep the train readable.
+
 ---
 
 ## Visuals (V1) - Art Direction

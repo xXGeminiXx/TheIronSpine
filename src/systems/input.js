@@ -29,6 +29,11 @@ export class InputController {
                 this.pulseRequested = true;
             }
         }
+        if (!this.keys && this.scene.sys.game.device.input.touch) {
+            // Prevent mobile taps from triggering pulses/drops by default.
+            this.dropRequested = false;
+            this.pulseRequested = false;
+        }
     }
 
     consumeBoostRequest() {
@@ -47,6 +52,14 @@ export class InputController {
         const requested = this.pulseRequested;
         this.pulseRequested = false;
         return requested;
+    }
+
+    requestDrop() {
+        this.dropRequested = true;
+    }
+
+    requestPulse() {
+        this.pulseRequested = true;
     }
 
     destroy() {

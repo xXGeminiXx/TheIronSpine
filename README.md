@@ -58,6 +58,12 @@
 Debug features can be toggled at runtime via the dev console (numpad `.`).
 Defaults are set in `src/config.js` and applied in `src/core/settings.js`.
 
+## Mobile Support
+
+- Touch input works out of the box; tap anywhere to steer and boost.
+- On-screen buttons appear in the bottom-left for Drop and Pulse.
+- The dev console is automatically disabled on touch-first devices.
+
 ## License & Contributions
 
 - **MIT Licensed**: Free to use, modify, distribute, and commercialize.

@@ -15,6 +15,7 @@ import { Spawner } from '../systems/spawner.js';
 import { CombatSystem, resetCombatIdCounters } from '../systems/combat.js';
 import { DevConsole } from '../systems/dev-console.js';
 import { Hud } from '../systems/hud.js';
+import { MobileControls } from '../systems/mobile-controls.js';
 
 export class GameScene extends Phaser.Scene {
     constructor() {
@@ -55,16 +56,29 @@ export class GameScene extends Phaser.Scene {
         this.hud = new Hud(this, this.train, this.combatSystem);
         this.debugGraphics = this.add.graphics();
         this.debugGraphics.setDepth(200);
-        this.devConsole = new DevConsole(
-            this,
-            this.train,
-            this.spawner,
-            this.combatSystem,
-            this.pickupManager,
-            {
-                onWin: () => this.endRun('victory')
-            }
-        );
+        this.isMobileTarget = this.sys.game.device.input.touch
+            && !this.sys.game.device.os.desktop;
+
+        if (!this.isMobileTarget) {
+            this.devConsole = new DevConsole(
+                this,
+                this.train,
+                this.spawner,
+                this.combatSystem,
+                this.pickupManager,
+                {
+                    onWin: () => this.endRun('victory')
+                }
+            );
+        } else {
+            this.devConsole = null;
+        }
+
+        if (this.isMobileTarget) {
+            this.mobileControls = new MobileControls(this, this.inputController);
+        } else {
+            this.mobileControls = null;
+        }
 
         this.overdriveState = {
             charge: 0,
@@ -83,7 +97,12 @@ export class GameScene extends Phaser.Scene {
     cleanup() {
         this.inputController.destroy();
         this.hud.destroy();
-        this.devConsole.destroy();
+        if (this.devConsole) {
+            this.devConsole.destroy();
+        }
+        if (this.mobileControls) {
+            this.mobileControls.destroy();
+        }
     }
 
     update(time, delta) {
@@ -190,7 +209,9 @@ export class GameScene extends Phaser.Scene {
         const camera = this.cameras.main;
         const uiScale = camera.zoom > 0 ? 1 / camera.zoom : 1;
         this.hud.setUiScale(uiScale);
-        this.devConsole.setUiScale(uiScale);
+        if (this.devConsole) {
+            this.devConsole.setUiScale(uiScale);
+        }
     }
 
     getZoomTarget() {
