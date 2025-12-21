@@ -1,3 +1,35 @@
+/**
+ * train.js - Train entity and car management
+ *
+ * The Train class represents the player's vehicle: a locomotive engine
+ * followed by a chain of weapon cars connected by spherical couplings.
+ *
+ * KEY CONCEPTS:
+ *   - Engine: The lead segment that follows the pointer. Has HP but no weapon.
+ *   - Cars: Weapon segments that follow the engine in a chain. Each has a
+ *     color (red/blue/yellow) and tier (1-3+).
+ *   - Couplings: Visual spheres drawn between segments for the "articulated
+ *     train" look inspired by the Bartellami Jet patent.
+ *
+ * MOVEMENT MODEL:
+ *   The engine steers toward the pointer using rotation clamped to turnSpeedDeg.
+ *   Cars follow their leader (engine or previous car) using lerp-based smoothing.
+ *   This creates a satisfying train-snake effect without physics engine overhead.
+ *
+ * MERGE SYSTEM:
+ *   When two adjacent cars share the same color AND tier, they merge into one
+ *   higher-tier car. The MergeManager (merge.js) handles detection and animation.
+ *
+ * DAMAGE:
+ *   Both engine and cars have HP. When a car dies, it explodes (dealing AoE
+ *   damage to enemies). When the engine dies, the run ends.
+ *
+ * ADDING NEW CAR TYPES:
+ *   1. Add color definition to COLORS in config.js
+ *   2. Add weapon stats to WEAPON_STATS in config.js
+ *   3. Add visual attachment in createColorAttachment() below
+ */
+
 import { CAMERA, COLORS, GAME, PALETTE, TRAIN, UI, RENDER } from '../config.js';
 import { angleTo, approach, lerp } from './math.js';
 import { debugLog, devAssert } from './debug.js';

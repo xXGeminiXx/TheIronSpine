@@ -1,3 +1,29 @@
+/**
+ * config.js - Central configuration for Iron Spine
+ *
+ * All game balance values, visual constants, and tuning parameters live here.
+ * This makes it easy to tweak gameplay without hunting through code.
+ *
+ * ORGANIZATION:
+ *   DEBUG      - Development/debug flags (disabled in production)
+ *   PALETTE    - Color scheme for UI and game objects
+ *   GAME       - Core game dimensions and timing
+ *   CAMERA     - Camera zoom, follow, and shake settings
+ *   TRAIN      - Engine and car physics, HP, sizes
+ *   COLORS     - The three weapon car types (red/blue/yellow)
+ *   WEAPON_*   - Damage, fire rates, ranges per weapon tier
+ *   ENEMIES    - Enemy type definitions
+ *   SPAWN      - Pickup and enemy spawn rules
+ *   WAVES      - Wave progression and scaling
+ *
+ * MODIFYING VALUES:
+ *   Feel free to experiment! Good starting points:
+ *   - TRAIN.engineSpeed: Make train faster/slower (default: 100)
+ *   - TRAIN.maxCars: Allow longer trains (default: 12)
+ *   - WAVES.totalToWin: Shorter/longer runs (default: 20)
+ *   - WEAPON_STATS: Adjust damage/fire rates for balance
+ */
+
 export const DEBUG = Object.freeze({
     enabled: false,
     overlay: false,
@@ -266,5 +292,6 @@ export const UI = Object.freeze({
     titleFontSize: 48,
     subtitleFontSize: 24,
     statsFontSize: 20,
-    hudPadding: 16
+    // Generous padding to avoid browser chrome overlap (bookmark bars, etc)
+    hudPadding: 32
 });

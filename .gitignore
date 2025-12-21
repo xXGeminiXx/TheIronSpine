@@ -1,10 +1,23 @@
+# OS files
 .DS_Store
 Thumbs.db
 ehthumbs.db
 desktop.ini
 
+# Editor/IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.sublime-*
+
+# Logs and temp files
 *.log
 *.tmp
-*.swp
 
+# Python (for local dev server)
 __pycache__/
+*.pyc
+
+# Note: No node_modules because this project intentionally has no npm/build step

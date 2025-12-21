@@ -1,3 +1,29 @@
+/**
+ * game-scene.js - Main gameplay scene
+ *
+ * This is where the action happens. GameScene orchestrates all gameplay
+ * systems: train movement, combat, spawning, merging, and HUD.
+ *
+ * GAME LOOP (each frame):
+ *   1. Process input (pointer position, button presses)
+ *   2. Update train (engine steering, car following)
+ *   3. Handle tactical inputs (drop car, overdrive pulse)
+ *   4. Update pickups (spawning, collection, drift)
+ *   5. Check/execute merges
+ *   6. Update combat (enemy AI, projectiles, damage)
+ *   7. Update spawner (wave progression, enemy spawning)
+ *   8. Update camera (follow train, dynamic zoom)
+ *   9. Draw HUD (HP bars, timer, wave info)
+ *   10. Check win/lose conditions
+ *
+ * WIN CONDITION: Clear all 20 waves (configurable in WAVES.totalToWin)
+ * LOSE CONDITION: Engine HP reaches 0
+ *
+ * OVERDRIVE PULSE:
+ *   Charges over 40 seconds, then player can trigger a screen-wide damage
+ *   burst that hits all enemies. Press E (keyboard) or PULSE button (mobile).
+ */
+
 import {
     CAMERA,
     COLOR_KEYS,

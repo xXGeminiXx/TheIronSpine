@@ -1,20 +1,40 @@
-# Iron Spine Prototype
+# Iron Spine
 
-## How to Run
+A free, open-source browser game where you command a modular weapon train. Collect cars, merge matching pairs into powerful upgrades, and survive 20 waves of enemies.
 
-1. Open `index.html` in a modern browser (Chrome, Firefox, Edge).
-2. If your browser blocks ES module imports from `file://`, run a local server:
+## Play Now
+
+**[https://xxgeminixx.github.io/TheIronSpine/](https://xxgeminixx.github.io/TheIronSpine/)**
+
+Works on desktop and mobile. No downloads, no installs, no paywalls.
+
+## Run Locally / Host Your Own
+
+1. Clone or download this repository
+2. Open `index.html` in a modern browser (Chrome, Firefox, Edge)
+3. If your browser blocks ES modules from `file://`, run a local server:
    ```bash
    python -m http.server 8000
    ```
    Then visit `http://localhost:8000`
 
-## Requirements & Constraints
+**Want to host it yourself?** Go for it. Copy the files to any static web host (GitHub Pages, Netlify, your own server) and it just works. No build step required.
 
-- Browser-only (HTML5 + Canvas).
-- Phaser 3 via CDN (no npm, no bundlers, no build step).
-- ES module support required (Chrome/Firefox/Edge).
-- Procedural graphics only (no external art/assets).
+## What Is This?
+
+Built in about 8 hours as a free alternative to a paywalled mobile game I used to enjoy. The graphics are procedurally generated (forgive the programmer art), but the gameplay is solid:
+
+- **Collect** weapon cars (Red, Blue, Yellow)
+- **Merge** adjacent same-color, same-tier cars into stronger versions
+- **Survive** 20 waves of increasingly tough enemies
+- **Win** by clearing all waves before your engine is destroyed
+
+## Technical Details
+
+- Browser-only (HTML5 Canvas)
+- Phaser 3 via CDN (no npm, no bundlers, no build step)
+- ES modules (Chrome/Firefox/Edge)
+- Procedural graphics (no external assets)
 
 ## Controls
 
@@ -60,9 +80,12 @@ Defaults are set in `src/config.js` and applied in `src/core/settings.js`.
 
 ## Mobile Support
 
-- Touch input works out of the box; tap anywhere to steer and boost.
-- On-screen buttons appear in the bottom-left for Drop and Pulse.
-- The dev console is automatically disabled on touch-first devices.
+Works on phones and tablets! Just open the link and play.
+
+- Touch anywhere to steer the train toward your finger
+- Tap to boost (or use the BOOST button)
+- On-screen buttons for BOOST, DROP, and PULSE appear automatically
+- Dev console is disabled on mobile (no keyboard needed)
 
 ## Versioning
 
@@ -107,11 +130,12 @@ tank-train/
 │   │   ├── debug.js     # Debug logging
 │   │   └── settings.js  # Runtime settings toggles
 │   ├── systems/
-│   │   ├── combat.js    # Enemies + projectiles
-│   │   ├── spawner.js   # Wave spawning
-│   │   ├── hud.js       # UI overlay
-│   │   ├── dev-console.js # Debug/mod menu
-│   │   └── input.js     # Input handling
+│   │   ├── combat.js       # Enemies + projectiles
+│   │   ├── spawner.js      # Wave spawning
+│   │   ├── hud.js          # UI overlay
+│   │   ├── dev-console.js  # Debug/mod menu
+│   │   ├── input.js        # Keyboard/mouse input
+│   │   └── mobile-controls.js # Touch buttons
 │   └── scenes/
 │       ├── menu-scene.js
 │       ├── settings-scene.js

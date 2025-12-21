@@ -2,9 +2,15 @@
 
 Project-specific instructions for Claude Code. These override defaults when working in this directory.
 
+## Project Status: COMPLETE (v1)
+
+**Live at:** https://xxgeminixx.github.io/TheIronSpine/
+
+Built in ~8 hours on 2025-12-21. Free, open-source, MIT licensed.
+
 ## Project Summary
 
-**Iron Spine** is a browser-based action game prototype inspired by Victor Bartellami Jet's 1944 Assault Train patent—an articulated war machine that never left the drawing board. You command a train made of weapon cars linked by spherical couplings. Cars auto-fire based on their color (Red=assault, Blue=control, Yellow=piercing). When 2 adjacent same-color, same-tier cars exist, they merge into a higher-tier version. The goal is to clear wave targets in 2-5 minute runs while strategically collecting and arranging cars.
+**Iron Spine** is a browser-based action game inspired by the paywalled mobile game Colossatron. You command a train made of weapon cars linked by spherical couplings. Cars auto-fire based on their color (Red=rapid, Blue=slow/freeze, Yellow=armor-piercing). When 2 adjacent same-color, same-tier cars exist, they merge into a higher-tier version. The goal is to clear 20 waves in 2-5 minute runs while strategically collecting and arranging cars.
 
 **Important**: This is a TRAIN, not a snake. Industrial, mechanical, armored. Spherical couplings, not biological joints. Steel and firepower, not slithering.
 
@@ -45,12 +51,15 @@ Monetization: NONE. No paywalls, no energy systems, no premium currency.
 
 ## Key Files
 
-| File | Purpose | Authority |
-|------|---------|-----------|
-| `design-doc.md` | Full game design specification | **Source of truth** for all mechanics. Includes Bartellami Jet historical context. |
-| `ideas.md` | Future ideas parking lot | NOT in scope for V1 |
-| `agents.md` | Context for AI assistants | Read for project philosophy |
-| `index.html` | (Future) Main Iron Spine game file | Will contain all game code |
+| File | Purpose |
+|------|---------|
+| `index.html` | Entry point - loads Phaser and main.js |
+| `src/config.js` | **All game balance values** - tweak this to modify gameplay |
+| `src/core/train.js` | Train + car logic, movement, merging |
+| `src/scenes/game-scene.js` | Main gameplay loop orchestration |
+| `src/systems/combat.js` | Enemies, projectiles, damage |
+| `design-doc.md` | Full design specification (source of truth) |
+| `ideas.md` | Future ideas parking lot (NOT in V1 scope) |
 
 ## Commands
 

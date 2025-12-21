@@ -1,3 +1,9 @@
+/**
+ * settings-scene.js - Game settings menu
+ *
+ * Allows players to toggle visual effects and accessibility options.
+ * Settings persist only for the current session (no localStorage).
+ */
 import { PALETTE, UI, RENDER } from '../config.js';
 import { SETTINGS, toggleSetting } from '../core/settings.js';
 
@@ -11,7 +17,7 @@ export class SettingsScene extends Phaser.Scene {
         this.add.rectangle(0, 0, width, height, Phaser.Display.Color.HexStringToColor(PALETTE.background).color)
             .setOrigin(0, 0);
 
-        this.titleText = this.add.text(width * 0.5, height * 0.18, 'SETTINGS', {
+        this.titleText = this.add.text(width * 0.5, height * 0.14, 'SETTINGS', {
             fontFamily: UI.fontFamily,
             fontSize: `${UI.titleFontSize}px`,
             color: PALETTE.uiText,
@@ -21,14 +27,16 @@ export class SettingsScene extends Phaser.Scene {
         this.titleText.setResolution(RENDER.textResolution);
 
         const toggles = [
-            { key: 'screenShake', label: 'Screen Shake' },
-            { key: 'showGrid', label: 'Grid Background' },
-            { key: 'debugOverlay', label: 'Debug Overlay' }
+            { key: 'screenShake', label: 'Screen Shake', desc: 'Camera effects on hits' },
+            { key: 'showGrid', label: 'Grid Background', desc: 'Show ground pattern' },
+            { key: 'invincible', label: 'Easy Mode', desc: 'Train cannot take damage' },
+            { key: 'debugOverlay', label: 'Debug Stats', desc: 'Show FPS and counts' }
         ];
 
         this.toggleTexts = [];
-        this.startY = height * 0.38;
-        this.stepY = 52;
+        this.descTexts = [];
+        this.startY = height * 0.32;
+        this.stepY = 58;
 
         toggles.forEach((toggle, index) => {
             const y = this.startY + index * this.stepY;
@@ -39,6 +47,14 @@ export class SettingsScene extends Phaser.Scene {
             }).setOrigin(0.5);
             text.setResolution(RENDER.textResolution);
 
+            // Add description text below each toggle
+            const descText = this.add.text(width * 0.5, y + 22, toggle.desc, {
+                fontFamily: UI.fontFamily,
+                fontSize: '14px',
+                color: '#888888'
+            }).setOrigin(0.5);
+            descText.setResolution(RENDER.textResolution);
+
             text.setInteractive({ useHandCursor: true });
             text.on('pointerdown', () => {
                 toggleSetting(toggle.key);
@@ -46,7 +62,8 @@ export class SettingsScene extends Phaser.Scene {
             });
 
             this.updateToggleText(text, toggle);
-            this.toggleTexts.push(text);
+            this.toggleTexts.push({ text, toggle });
+            this.descTexts.push(descText);
         });
 
         this.backText = this.add.text(width * 0.5, height * 0.8, 'BACK', {
@@ -87,11 +104,16 @@ export class SettingsScene extends Phaser.Scene {
 
     layout() {
         const { width, height } = this.scale;
-        this.titleText.setPosition(width * 0.5, height * 0.18);
-        this.startY = height * 0.38;
-        this.toggleTexts.forEach((text, index) => {
-            text.setPosition(width * 0.5, this.startY + index * this.stepY);
+        this.titleText.setPosition(width * 0.5, height * 0.14);
+        this.startY = height * 0.32;
+        this.toggleTexts.forEach((entry, index) => {
+            const y = this.startY + index * this.stepY;
+            entry.text.setPosition(width * 0.5, y);
         });
-        this.backText.setPosition(width * 0.5, height * 0.8);
+        this.descTexts.forEach((descText, index) => {
+            const y = this.startY + index * this.stepY + 22;
+            descText.setPosition(width * 0.5, y);
+        });
+        this.backText.setPosition(width * 0.5, height * 0.88);
     }
 }
