@@ -56,7 +56,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v1'
+    version: 'v1.1'
 });
 
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'

@@ -76,8 +76,8 @@ export class MobileControls {
 
     positionButtons() {
         const { height } = this.scene.scale;
-        // Account for notches/safe areas - add extra left padding
-        const safeAreaLeft = 24;
+        // Account for notches/safe areas - large left padding needed
+        const safeAreaLeft = 60;
         const startX = BUTTON_RADIUS + BUTTON_PADDING + safeAreaLeft;
         const startY = height - BUTTON_RADIUS - BUTTON_PADDING - 20;
         const spacing = BUTTON_RADIUS * 2 + BUTTON_PADDING;
