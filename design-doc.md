@@ -585,6 +585,7 @@ Enemies exist to create pressure and force decisions. They should be:
 
 4. **Wave Indicator**: Current wave / total with elite callouts
 5. **Overdrive Meter**: Shows charge progress and “PULSE READY”
+6. **Build Tag**: Current version (e.g., `v1`) in the bottom-right for quick verification
 
 ### Contextual
 - **Merge Flash**: Brief "MERGED!" text when merge occurs

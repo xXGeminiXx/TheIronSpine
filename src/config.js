@@ -29,6 +29,10 @@ export const GAME = Object.freeze({
     spawnInvulnerableSeconds: 1.5
 });
 
+export const BUILD = Object.freeze({
+    version: 'v1'
+});
+
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'
     ? window.devicePixelRatio || 1
     : 1;

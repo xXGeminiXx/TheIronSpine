@@ -1,4 +1,4 @@
-import { COLORS, PALETTE, UI, OVERDRIVE, RENDER } from '../config.js';
+import { BUILD, COLORS, PALETTE, UI, OVERDRIVE, RENDER } from '../config.js';
 import { SETTINGS } from '../core/settings.js';
 
 const HUD_DEPTH = 100;
@@ -78,6 +78,16 @@ export class Hud {
         this.pulseText.setScrollFactor(0);
         this.pulseText.setDepth(HUD_DEPTH);
 
+        this.versionText = scene.add.text(0, 0, BUILD.version, {
+            fontFamily: UI.fontFamily,
+            fontSize: '14px',
+            color: PALETTE.uiText
+        });
+        this.versionText.setResolution(RENDER.textResolution);
+        this.versionText.setScrollFactor(0);
+        this.versionText.setDepth(HUD_DEPTH);
+        this.versionText.setOrigin(1, 1);
+
         this.debugText = scene.add.text(
             0,
             0,
@@ -139,6 +149,10 @@ export class Hud {
         if (this.debugText) {
             this.debugText.setPosition(padding * scale, (height - 80) * scale);
         }
+        this.versionText.setPosition(
+            width * scale - padding * scale,
+            height * scale - padding * scale
+        );
     }
 
     setUiScale(scale) {
@@ -164,6 +178,7 @@ export class Hud {
         this.mergeText.setScale(scale);
         this.pulseText.setScale(scale);
         this.debugText.setScale(scale);
+        this.versionText.setScale(scale);
     }
 
     update(runTimeSeconds, waveStatus, deltaSeconds, overdriveState, engineWeaponState) {
