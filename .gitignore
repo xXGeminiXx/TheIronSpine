@@ -20,4 +20,10 @@ desktop.ini
 __pycache__/
 *.pyc
 
+# Screenshots (debugging artifacts)
+*.jpg
+*.jpeg
+*.png
+*.gif
+
 # Note: No node_modules because this project intentionally has no npm/build step

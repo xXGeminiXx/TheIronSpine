@@ -119,27 +119,29 @@ export class Hud {
         const { width, height } = this.scene.scale;
         const padding = UI.hudPadding;
         const scale = this.uiScale || 1;
+        // Extra left margin to prevent clipping on devices with notches/safe areas
+        const leftMargin = padding + 16;
 
-        this.engineLabel.setPosition(padding * scale, (padding - 2) * scale);
-        this.engineWeaponText.setPosition(padding * scale, (padding + 16) * scale);
+        this.engineLabel.setPosition(leftMargin * scale, (padding - 2) * scale);
+        this.engineWeaponText.setPosition(leftMargin * scale, (padding + 16) * scale);
 
         this.engineBar = {
-            x: padding + 70,
+            x: leftMargin + 70,
             y: padding + 2,
             width: 200,
             height: 12
         };
         this.carBar = {
-            x: padding,
+            x: leftMargin,
             y: padding + 36
         };
         this.pulseBar = {
-            x: padding,
+            x: leftMargin,
             y: padding + 58,
             width: 180,
             height: 10
         };
-        this.pulseText.setPosition(padding * scale, (padding + 70) * scale);
+        this.pulseText.setPosition(leftMargin * scale, (padding + 70) * scale);
 
         this.timerText.setPosition(width * 0.5 * scale, padding * scale);
         this.waveText.setPosition(width * 0.5 * scale, (padding + 22) * scale);
@@ -147,7 +149,7 @@ export class Hud {
         this.mergeText.setPosition(width * 0.5 * scale, 120 * scale);
 
         if (this.debugText) {
-            this.debugText.setPosition(padding * scale, (height - 80) * scale);
+            this.debugText.setPosition(leftMargin * scale, (height - 80) * scale);
         }
         this.versionText.setPosition(
             width * scale - padding * scale,
