@@ -123,6 +123,8 @@ export class DevConsole {
             '2: Pickup (red)  3: Pickup (blue)  4: Pickup (yellow)',
             '5: Spawn skirmishers x5',
             '6: Spawn champion  7: Spawn boss',
+            '0: Spawn rangers x3',
+            'A: Spawn armored',
             '8: Clear enemies',
             `9: Invincible [${SETTINGS.invincible ? 'ON' : 'OFF'}]`,
             `H: Hitboxes [${SETTINGS.showHitboxes ? 'ON' : 'OFF'}]`,
@@ -167,6 +169,15 @@ export class DevConsole {
             case 'Digit7':
             case 'Numpad7':
                 this.spawner.spawnDebugEnemy('boss');
+                break;
+            case 'Digit0':
+            case 'Numpad0':
+                for (let i = 0; i < 3; i += 1) {
+                    this.spawner.spawnDebugEnemy('ranger');
+                }
+                break;
+            case 'KeyA':
+                this.spawner.spawnDebugEnemy('armored');
                 break;
             case 'Digit8':
             case 'Numpad8':

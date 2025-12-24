@@ -143,6 +143,12 @@ tank-train/
 └── CLAUDE.md
 ```
 
+### File Ownership Rules
+- Each core system lives in its own file (example: merges belong in `src/core/merge.js`).
+- Do not implement system logic in unrelated files; call into the owning module instead.
+- Each file should represent one core idea; avoid cross-cutting logic across modules.
+- Keep functions single-purpose and add intent-focused comments (favor "why" and sequencing) in core systems.
+
 **Prefer single file** if total code stays under ~1500 lines.
 
 ## Physics Implementation Notes

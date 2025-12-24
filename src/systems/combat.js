@@ -10,13 +10,16 @@ import { angleTo, distanceSquared, normalizeVector } from '../core/math.js';
 
 const ENEMY_DEPTH = 12;
 const PROJECTILE_DEPTH = 11;
+const ENEMY_PROJECTILE_DEPTH = 10;
 
 let nextEnemyId = 1;
 let nextProjectileId = 1;
+let nextEnemyProjectileId = 1;
 
 export function resetCombatIdCounters() {
     nextEnemyId = 1;
     nextProjectileId = 1;
+    nextEnemyProjectileId = 1;
 }
 
 export class CombatSystem {
@@ -26,14 +29,22 @@ export class CombatSystem {
         this.eventHandlers = eventHandlers;
         this.enemies = [];
         this.projectiles = [];
+        this.enemyProjectiles = [];
+        this.bonusMultipliers = {
+            damage: 1,
+            fireRate: 1,
+            range: 1
+        };
         this.stats = {
-            enemiesDestroyed: 0
+            enemiesDestroyed: 0,
+            pulseHits: 0
         };
     }
 
     update(deltaSeconds) {
         this.updateEnemies(deltaSeconds);
         this.updateProjectiles(deltaSeconds);
+        this.updateEnemyProjectiles(deltaSeconds);
         this.updateAutoFire(deltaSeconds);
         this.updateEngineAutoFire(deltaSeconds);
     }
@@ -42,34 +53,119 @@ export class CombatSystem {
         for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
             const enemy = this.enemies[index];
 
-            if (enemy.slowTimer > 0) {
-                enemy.slowTimer = Math.max(0, enemy.slowTimer - deltaSeconds);
-                if (enemy.slowTimer === 0) {
-                    enemy.slowMultiplier = 1;
-                }
+            this.updateEnemySlow(enemy, deltaSeconds);
+
+            if (enemy.type === 'ranger') {
+                this.updateRangerEnemy(enemy, deltaSeconds);
+            } else {
+                this.updateMeleeEnemy(enemy, deltaSeconds);
             }
 
-            const target = this.findNearestSegment(enemy.x, enemy.y);
-            if (!target) {
-                continue;
-            }
-
-            const targetAngle = angleTo(enemy.x, enemy.y, target.x, target.y);
-            enemy.rotation = targetAngle;
-
-            const speed = enemy.speed * enemy.slowMultiplier;
-            enemy.x += Math.cos(targetAngle) * speed * deltaSeconds;
-            enemy.y += Math.sin(targetAngle) * speed * deltaSeconds;
-            enemy.sprite.x = enemy.x;
-            enemy.sprite.y = enemy.y;
-            enemy.sprite.rotation = enemy.rotation;
-
-            const collisionRadius = enemy.radius + target.radius;
-            if (distanceSquared(enemy.x, enemy.y, target.x, target.y) <= collisionRadius ** 2) {
-                this.handleEnemyCollision(enemy, target);
+            const collisionSegment = this.findCollisionSegment(enemy);
+            if (collisionSegment) {
+                this.handleEnemyCollision(enemy, collisionSegment);
                 this.destroyEnemyAtIndex(index);
             }
         }
+    }
+
+    updateEnemySlow(enemy, deltaSeconds) {
+        if (enemy.slowTimer <= 0) {
+            return;
+        }
+
+        enemy.slowTimer = Math.max(0, enemy.slowTimer - deltaSeconds);
+        if (enemy.slowTimer === 0) {
+            enemy.slowMultiplier = 1;
+        }
+    }
+
+    updateMeleeEnemy(enemy, deltaSeconds) {
+        const target = this.getTargetForEnemy(enemy);
+        if (!target) {
+            return;
+        }
+
+        const targetAngle = angleTo(enemy.x, enemy.y, target.x, target.y);
+        enemy.rotation = targetAngle;
+
+        const speed = enemy.speed * enemy.slowMultiplier;
+        enemy.x += Math.cos(targetAngle) * speed * deltaSeconds;
+        enemy.y += Math.sin(targetAngle) * speed * deltaSeconds;
+        enemy.sprite.x = enemy.x;
+        enemy.sprite.y = enemy.y;
+        enemy.sprite.rotation = enemy.rotation;
+    }
+
+    updateRangerEnemy(enemy, deltaSeconds) {
+        const engine = this.train.engine;
+        if (!engine) {
+            return;
+        }
+
+        const toEngine = {
+            x: engine.x - enemy.x,
+            y: engine.y - enemy.y
+        };
+        const distance = Math.hypot(toEngine.x, toEngine.y);
+        const desired = enemy.orbitDistance || ENEMIES.ranger.orbitDistance;
+        const radial = distance > 0
+            ? { x: toEngine.x / distance, y: toEngine.y / distance }
+            : { x: 1, y: 0 };
+
+        // Orbit uses a tangential push plus a gentle radial correction.
+        const orbitDirection = enemy.orbitDirection || 1;
+        const tangential = { x: -radial.y * orbitDirection, y: radial.x * orbitDirection };
+        const radialError = distance - desired;
+        const radialStrength = Phaser.Math.Clamp(radialError / desired, -1, 1);
+
+        const move = normalizeVector(
+            tangential.x + radial.x * radialStrength,
+            tangential.y + radial.y * radialStrength
+        );
+
+        const speed = enemy.speed * enemy.slowMultiplier;
+        enemy.x += move.x * speed * deltaSeconds;
+        enemy.y += move.y * speed * deltaSeconds;
+        enemy.sprite.x = enemy.x;
+        enemy.sprite.y = enemy.y;
+        enemy.rotation = angleTo(enemy.x, enemy.y, engine.x, engine.y);
+        enemy.sprite.rotation = enemy.rotation;
+
+        this.tryRangerFire(enemy, engine, deltaSeconds);
+    }
+
+    tryRangerFire(enemy, engine, deltaSeconds) {
+        const fireCooldown = enemy.fireCooldown || ENEMIES.ranger.fireCooldown;
+        enemy.attackCooldown = Math.max(0, enemy.attackCooldown - deltaSeconds);
+        if (enemy.attackCooldown > 0) {
+            return;
+        }
+
+        const target = {
+            x: engine.x,
+            y: engine.y
+        };
+        this.spawnEnemyProjectile(enemy, target);
+        enemy.attackCooldown = fireCooldown;
+    }
+
+    getTargetForEnemy(enemy) {
+        if (enemy.type === 'boss' || enemy.type === 'armored') {
+            return this.train.engine;
+        }
+        return this.findNearestSegment(enemy.x, enemy.y);
+    }
+
+    findCollisionSegment(enemy) {
+        const segments = this.train.getAllSegments();
+        for (const segment of segments) {
+            const collisionRadius = enemy.radius + segment.radius;
+            if (distanceSquared(enemy.x, enemy.y, segment.x, segment.y) <= collisionRadius ** 2) {
+                return segment;
+            }
+        }
+        return null;
     }
 
     updateProjectiles(deltaSeconds) {
@@ -98,6 +194,31 @@ export class CombatSystem {
         }
     }
 
+    updateEnemyProjectiles(deltaSeconds) {
+        for (let index = this.enemyProjectiles.length - 1; index >= 0; index -= 1) {
+            const projectile = this.enemyProjectiles[index];
+            projectile.x += projectile.velocity.x * deltaSeconds;
+            projectile.y += projectile.velocity.y * deltaSeconds;
+            projectile.travelled += projectile.speed * deltaSeconds;
+            projectile.sprite.x = projectile.x;
+            projectile.sprite.y = projectile.y;
+
+            if (projectile.travelled >= projectile.range) {
+                this.removeEnemyProjectileAtIndex(index);
+                continue;
+            }
+
+            const hitSegment = this.findEnemyProjectileHitSegment(projectile);
+            if (hitSegment) {
+                const result = this.train.applyDamageToSegment(hitSegment, projectile.damage);
+                if (this.eventHandlers.onTrainHit) {
+                    this.eventHandlers.onTrainHit(hitSegment, result);
+                }
+                this.removeEnemyProjectileAtIndex(index);
+            }
+        }
+    }
+
     updateAutoFire(deltaSeconds) {
         for (const car of this.train.getWeaponCars()) {
             if (car.weaponCooldown > 0) {
@@ -116,7 +237,7 @@ export class CombatSystem {
 
             const fireInterval = 1 / weaponStats.fireRate;
             car.weaponCooldown = fireInterval;
-            this.spawnProjectile(car, target, weaponStats);
+            this.spawnProjectile(car, target, weaponStats, 'car', car.tier);
         }
     }
 
@@ -153,7 +274,9 @@ export class CombatSystem {
         this.spawnProjectile(
             { x: engine.x, y: engine.y, colorKey: engineWeapon.colorKey },
             target,
-            engineWeapon
+            engineWeapon,
+            'engine',
+            engineWeapon.tier
         );
     }
 
@@ -163,21 +286,7 @@ export class CombatSystem {
             return null;
         }
 
-        const size = base.size || { width: 24, height: 16 };
-        const sprite = this.scene.add.triangle(
-            position.x,
-            position.y,
-            0,
-            -size.height,
-            size.width,
-            0,
-            0,
-            size.height,
-            base.color
-        );
-        const strokeWidth = type === 'boss' ? 4 : 2;
-        sprite.setStrokeStyle(strokeWidth, base.trim);
-        sprite.setDepth(ENEMY_DEPTH);
+        const sprite = this.createEnemySprite(type, position, base);
 
         nextEnemyId += 1;
         const enemyId = nextEnemyId;
@@ -195,8 +304,15 @@ export class CombatSystem {
             radius: base.radius,
             armor: base.armor,
             baseColor: base.color,
+            trim: base.trim,
             slowTimer: 0,
             slowMultiplier: 1,
+            attackCooldown: type === 'ranger'
+                ? (base.fireCooldown * (0.5 + Math.random()))
+                : 0,
+            fireCooldown: base.fireCooldown || 0,
+            orbitDistance: base.orbitDistance || 0,
+            orbitDirection: type === 'ranger' ? (enemyId % 2 === 0 ? 1 : -1) : 0,
             sprite
         };
 
@@ -208,7 +324,61 @@ export class CombatSystem {
         return this.spawnEnemy('skirmisher', position);
     }
 
-    spawnProjectile(car, target, weaponStats) {
+    createEnemySprite(type, position, base) {
+        const size = base.size || { width: 24, height: 16 };
+        let sprite = null;
+
+        if (type === 'armored') {
+            const halfW = size.width * 0.5;
+            const halfH = size.height * 0.5;
+            sprite = this.scene.add.polygon(
+                position.x,
+                position.y,
+                [
+                    0, -halfH,
+                    halfW, -halfH * 0.4,
+                    halfW, halfH * 0.4,
+                    0, halfH,
+                    -halfW, halfH * 0.4,
+                    -halfW, -halfH * 0.4
+                ],
+                base.color
+            );
+        } else if (type === 'ranger') {
+            const halfW = size.width * 0.5;
+            const halfH = size.height * 0.5;
+            sprite = this.scene.add.polygon(
+                position.x,
+                position.y,
+                [
+                    0, -halfH,
+                    halfW, 0,
+                    0, halfH,
+                    -halfW, 0
+                ],
+                base.color
+            );
+        } else {
+            sprite = this.scene.add.triangle(
+                position.x,
+                position.y,
+                0,
+                -size.height,
+                size.width,
+                0,
+                0,
+                size.height,
+                base.color
+            );
+        }
+
+        const strokeWidth = type === 'boss' ? 4 : 2;
+        sprite.setStrokeStyle(strokeWidth, base.trim);
+        sprite.setDepth(ENEMY_DEPTH);
+        return sprite;
+    }
+
+    spawnProjectile(car, target, weaponStats, source = 'car', tier = null) {
         const angle = angleTo(car.x, car.y, target.x, target.y);
         const velocity = normalizeVector(Math.cos(angle), Math.sin(angle));
         const speed = weaponStats.projectileSpeed;
@@ -242,6 +412,56 @@ export class CombatSystem {
 
         this.projectiles.push(projectile);
         this.spawnMuzzleFlash(car, angle);
+        if (this.eventHandlers.onWeaponFired) {
+            this.eventHandlers.onWeaponFired(car.colorKey, source, tier);
+        }
+        return projectile;
+    }
+
+    spawnEnemyProjectile(enemy, target) {
+        const base = ENEMIES.ranger;
+        const angle = angleTo(enemy.x, enemy.y, target.x, target.y);
+        const spread = Phaser.Math.DegToRad(base.projectileSpreadDeg || 0);
+        const offset = spread > 0 ? (Math.random() * 2 - 1) * spread : 0;
+        const finalAngle = angle + offset;
+        const velocity = normalizeVector(Math.cos(finalAngle), Math.sin(finalAngle));
+        const speed = base.projectileSpeed;
+        const size = base.projectileSize || { width: 10, height: 10 };
+        const color = base.projectileColor || 0xff5555;
+
+        const sprite = this.scene.add.rectangle(
+            enemy.x,
+            enemy.y,
+            size.width,
+            size.height,
+            color
+        );
+        sprite.setDepth(ENEMY_PROJECTILE_DEPTH);
+        sprite.rotation = finalAngle + Math.PI / 4;
+        sprite.setStrokeStyle(2, 0xffffff, 0.5);
+
+        nextEnemyProjectileId += 1;
+        const projectileId = nextEnemyProjectileId;
+        const projectile = {
+            id: projectileId,
+            x: enemy.x,
+            y: enemy.y,
+            velocity: {
+                x: velocity.x * speed,
+                y: velocity.y * speed
+            },
+            speed,
+            range: base.projectileRange,
+            travelled: 0,
+            damage: enemy.damage,
+            radius: Math.max(size.width, size.height) * 0.5,
+            sprite
+        };
+
+        this.enemyProjectiles.push(projectile);
+        if (this.eventHandlers.onEnemyWeaponFired) {
+            this.eventHandlers.onEnemyWeaponFired(enemy);
+        }
         return projectile;
     }
 
@@ -271,12 +491,17 @@ export class CombatSystem {
     }
 
     applyPulseDamage(damage) {
+        let hits = 0;
         for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
             const enemy = this.enemies[index];
             enemy.hp = Math.max(0, enemy.hp - damage);
+            hits += 1;
             if (enemy.hp <= 0) {
                 this.destroyEnemyAtIndex(index);
             }
+        }
+        if (hits > 0) {
+            this.stats.pulseHits += hits;
         }
     }
 
@@ -290,6 +515,18 @@ export class CombatSystem {
             }
         }
         return -1;
+    }
+
+    findEnemyProjectileHitSegment(projectile) {
+        const segments = this.train.getAllSegments();
+        for (const segment of segments) {
+            const maxDistance = segment.radius + projectile.radius;
+            if (distanceSquared(projectile.x, projectile.y, segment.x, segment.y)
+                <= maxDistance ** 2) {
+                return segment;
+            }
+        }
+        return null;
     }
 
     handleEnemyCollision(enemy, target) {
@@ -311,6 +548,11 @@ export class CombatSystem {
 
     removeProjectileAtIndex(index) {
         const [projectile] = this.projectiles.splice(index, 1);
+        projectile.sprite.destroy();
+    }
+
+    removeEnemyProjectileAtIndex(index) {
+        const [projectile] = this.enemyProjectiles.splice(index, 1);
         projectile.sprite.destroy();
     }
 
@@ -403,18 +645,18 @@ export class CombatSystem {
                 : 1;
         const stats = ENGINE_WEAPON.stats[dominant][tier - 1];
 
-        return {
+        return this.applyWeaponBonuses({
             colorKey: dominant,
             tier,
             count,
             ...stats
-        };
+        });
     }
 
     getWeaponStatsForTier(colorKey, tier) {
         const tiers = WEAPON_STATS[colorKey];
         if (tier <= tiers.length) {
-            return tiers[tier - 1];
+            return this.applyWeaponBonuses(tiers[tier - 1]);
         }
 
         const last = tiers[tiers.length - 1];
@@ -436,11 +678,36 @@ export class CombatSystem {
             }
         }
 
-        return next;
+        return this.applyWeaponBonuses(next);
     }
 
     getEngineWeaponState() {
         return this.getEngineWeaponProfile();
+    }
+
+    setBonusMultipliers(multipliers) {
+        if (!multipliers) {
+            return;
+        }
+        this.bonusMultipliers = {
+            damage: multipliers.damage || 1,
+            fireRate: multipliers.fireRate || 1,
+            range: multipliers.range || 1
+        };
+    }
+
+    applyWeaponBonuses(stats) {
+        const adjusted = { ...stats };
+        if (typeof adjusted.damage === 'number') {
+            adjusted.damage *= this.bonusMultipliers.damage;
+        }
+        if (typeof adjusted.fireRate === 'number') {
+            adjusted.fireRate *= this.bonusMultipliers.fireRate;
+        }
+        if (typeof adjusted.range === 'number') {
+            adjusted.range *= this.bonusMultipliers.range;
+        }
+        return adjusted;
     }
 
     spawnMuzzleFlash(car, angle) {
@@ -497,5 +764,10 @@ export class CombatSystem {
             projectile.sprite.destroy();
         }
         this.projectiles.length = 0;
+
+        for (const projectile of this.enemyProjectiles) {
+            projectile.sprite.destroy();
+        }
+        this.enemyProjectiles.length = 0;
     }
 }

@@ -51,6 +51,14 @@ Steer to survive and collect; the train auto-fires; merges happen automatically;
 - **Wave clarity**: UI must show current wave and elite (champion/boss) callouts.
 - **No healing**: HP only decreases in V1.1 unless a future system is added.
 
+### V1.2 Additions (Quality of Life)
+- **Pause overlay**: ESC/P opens a pause menu with Resume/Settings/Quit.
+- **Drop protection**: Cooldowns + hold-to-drop when nearing the last car.
+- **Tutorial scene**: “How to Play” walkthrough from the main menu.
+- **Achievements**: Persistent unlocks with gameplay bonuses (damage/speed/HP).
+- **Endless mode**: Infinite waves toggle in Settings.
+- **Big-number formatting**: Readable counters for huge wave/kill values.
+
 ---
 
 ## TUNING DEFAULTS
@@ -61,7 +69,7 @@ Steer to survive and collect; the train auto-fires; merges happen automatically;
 | Parameter | Default | Notes |
 |-----------|---------|-------|
 | Run length | 20 waves | Target 2-5 minutes |
-| Engine HP | 50 | Separate from car HP |
+| Engine HP | 55 | Separate from car HP |
 | Car HP (Tier 1) | 20 | |
 | Car HP (Tier 2) | 30 | |
 | Car HP (Tier 3) | 40 | |
@@ -114,12 +122,16 @@ Engine weapon **evolves based on the cars behind it**.
 ### Spawning
 | Parameter | Default |
 |-----------|---------|
-| Car spawn cadence | 2-3 every 10-14s |
+| Car spawn cadence | 2-3 every 9-12s |
 | Car drift speed | 30 units/sec |
 | Car despawn time | 15s |
 | Wave cadence | Fixed size, short inter-wave delay |
 | Champion cadence | Every 5th wave |
 | Boss cadence | Every 10th wave |
+
+**Scaling notes (V1.1):**
+- Pickup cadence slows slightly by wave and by highest tier (keeps late runs readable).
+- Skirmisher counts ramp gently with wave number (small +1 steps).
 
 ### Overdrive Pulse (V1.1)
 | Parameter | Default | Notes |
@@ -209,7 +221,7 @@ Dozens of bullets, explosions, and enemies—but you always know:
 ### Phase 2: Growth (Waves 3-8)
 - Loose cars drift onto the battlefield from the top/sides
 - Cars spawn in waves, not constantly (prevents visual noise)
-- **Car spawn cadence**: 2-3 cars every 10-14 seconds
+- **Car spawn cadence**: 2-3 cars every 9-12 seconds
 - Player steers to collect cars (touch train head to car hitbox)
 - New cars append to tail
 - Enemy waves escalate per wave; champions every 5th wave, bosses every 10th
@@ -251,9 +263,11 @@ The train should feel **weighty but responsive**. Like a muscle car, not a shopp
 - Visual: engine glows, smoke trail intensifies
 - Audio: engine pitch rises
 
-### Tactical: Jettison + Pulse
+### Tactical: Jettison + Reorder + Pulse
 - **Spacebar**: Jettison the tail car (last in the chain). No explosion. Counts as lost.
+- **R**: Reorder the chain (higher tiers slide toward the engine; same-color cars group within each tier).
 - **E**: Trigger Overdrive Pulse when fully charged (screen-wide shockwave).
+- **ESC / P**: Pause overlay (Resume / Settings / Quit).
 
 ### What You DON'T Control
 - Aiming (cars auto-target nearest enemy in range)
@@ -298,12 +312,11 @@ This constraint is core to the fantasy—you're a conductor, not a gunner.
 - This creates the signature articulated convoy movement—cars trailing in formation, not slithering
 - **Tail jettison**: Spacebar removes the last car. No explosion. Counts as lost.
 
-### Car Reordering (TBD)
-- No manual reordering in the current build; pickups append to the tail.
-- Candidates to evaluate:
-  - Switchyard pickup (pause + swap two cars)
-  - Coupler shuffle (rotate last 3 cars)
-  - Drag mode (slow time + drag car)
+### Car Reordering (V1.1)
+- Manual reorder (R key / SORT button on mobile).
+- **Rule**: Higher tiers move toward the engine; within each tier, cars group by color.
+- Reordering does not change merge rules—it only changes adjacency.
+- Pickups still append to the tail; reorder is a tactical recovery tool.
 
 ### Damage Model (V1.1 - Simple)
 - Damage applies to the car that was hit
@@ -595,13 +608,13 @@ Enemies exist to create pressure and force decisions. They should be:
 
 ### Menus
 - **Start Screen**: Title, Start + Settings buttons
-- **Settings Screen**: Toggle screen shake, grid, debug overlay
+- **Settings Screen**: Toggle screen shake, grid, debug overlay, UI scale (small/medium/large)
 - **Death Screen**: Stats, Retry + Settings
 - **Victory Screen**: Stats, Play Again + Settings
 
 ## Mobile Considerations
 - Touch input drives steering (tap-to-boost) and benefits from the existing pointer logic.
-- Small Drop/Pulse buttons appear near the bottom-left of the viewport on mobile devices.
+- Small Drop/Sort/Pulse buttons appear near the bottom-left of the viewport on mobile devices.
 - Dev console/debug overlays are disabled on touch-first platforms to keep the UI clean.
 - UI/HUD scales with camera zoom so smaller screens still keep the train readable.
 
@@ -716,10 +729,10 @@ Wave    | Enemy Pressure | Car Spawns | Player State
 - Keeps the fantasy while reducing helpless openings
 
 ### Q: Car ordering/rearrangement?
-**A: No manual rearrangement.**
-- Cars still append to tail only
-- **Tail jettison** is the only corrective tool
-- Wrong pickups remain a penalty, but are recoverable
+**A: Yes, via deterministic reorder.**
+- **R** sorts tiers toward the engine and groups colors within tiers
+- Pickups still append to tail only
+- **Tail jettison** remains a separate corrective tool
 
 ---
 

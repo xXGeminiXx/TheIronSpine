@@ -2,11 +2,12 @@ import { COLOR_KEYS, SPAWN, WAVES } from '../config.js';
 import { pickRandom, randomBetween, randomInt, normalizeVector } from '../core/math.js';
 
 export class Spawner {
-    constructor(scene, train, pickupManager, combatSystem) {
+    constructor(scene, train, pickupManager, combatSystem, endlessMode = null) {
         this.scene = scene;
         this.train = train;
         this.pickupManager = pickupManager;
         this.combatSystem = combatSystem;
+        this.endlessMode = endlessMode;
         this.pickupTimer = randomBetween(
             SPAWN.pickupSpawnMinSeconds,
             SPAWN.pickupSpawnMaxSeconds
@@ -17,6 +18,7 @@ export class Spawner {
         this.pendingEliteType = null;
         this.activeEliteType = null;
         this.victoryReady = false;
+        this.waveKillStart = 0;
     }
 
     update(deltaSeconds) {
@@ -31,14 +33,19 @@ export class Spawner {
         }
 
         const waveNumber = Math.max(1, this.waveNumber);
-        const lateRun = waveNumber >= 10;
-        const scale = lateRun ? 1.5 : 1;
-        const countMin = lateRun
-            ? Math.max(1, Math.floor(SPAWN.pickupCountMin / 2))
-            : SPAWN.pickupCountMin;
-        const countMax = lateRun
-            ? Math.max(2, Math.floor(SPAWN.pickupCountMax / 2))
-            : SPAWN.pickupCountMax;
+        const waveScale = Math.min(
+            SPAWN.pickupTimeScaleMax,
+            1 + (waveNumber - 1) * SPAWN.pickupTimeScalePerWave
+        );
+        const countScale = Math.max(
+            SPAWN.pickupCountScaleMin,
+            1 - (waveNumber - 1) * SPAWN.pickupCountScalePerWave
+        );
+        const tierScale = this.getTierPickupScale();
+        const timeScale = waveScale * tierScale;
+
+        const countMin = Math.max(1, Math.round(SPAWN.pickupCountMin * countScale));
+        const countMax = Math.max(countMin, Math.round(SPAWN.pickupCountMax * countScale));
         const pickupCount = randomInt(countMin, countMax);
 
         for (let i = 0; i < pickupCount; i += 1) {
@@ -46,8 +53,8 @@ export class Spawner {
         }
 
         this.pickupTimer = randomBetween(
-            SPAWN.pickupSpawnMinSeconds * scale,
-            SPAWN.pickupSpawnMaxSeconds * scale
+            SPAWN.pickupSpawnMinSeconds * timeScale,
+            SPAWN.pickupSpawnMaxSeconds * timeScale
         );
     }
 
@@ -66,7 +73,7 @@ export class Spawner {
         }
 
         if (this.wavePhase === 'skirmish') {
-            if (!this.hasEnemyType('skirmisher')) {
+            if (!this.hasWaveEnemies()) {
                 if (this.pendingEliteType) {
                     this.spawnElite(this.pendingEliteType);
                     this.activeEliteType = this.pendingEliteType;
@@ -120,6 +127,28 @@ export class Spawner {
         this.combatSystem.spawnEnemy('skirmisher', spawnPoint, scale);
     }
 
+    spawnRanger(scale) {
+        const camera = this.scene.cameras.main;
+        const forward = this.getForwardVector();
+        const padding = this.getDynamicPadding(
+            SPAWN.spawnPadding + 50,
+            SPAWN.enemyPaddingPerCar
+        );
+        const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
+        this.combatSystem.spawnEnemy('ranger', spawnPoint, scale);
+    }
+
+    spawnArmored(scale) {
+        const camera = this.scene.cameras.main;
+        const forward = this.getForwardVector();
+        const padding = this.getDynamicPadding(
+            SPAWN.spawnPadding + 70,
+            SPAWN.enemyPaddingPerCar
+        );
+        const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
+        this.combatSystem.spawnEnemy('armored', spawnPoint, scale);
+    }
+
     spawnElite(type) {
         const camera = this.scene.cameras.main;
         const forward = this.getForwardVector();
@@ -143,6 +172,15 @@ export class Spawner {
         const carCount = this.train ? this.train.cars.length : 0;
         const extra = Math.min(SPAWN.maxExtraPadding, carCount * perCarPadding);
         return basePadding + extra;
+    }
+
+    getTierPickupScale() {
+        // Use current highest tier so recovery is still possible after losses.
+        const cars = this.train ? this.train.getWeaponCars() : [];
+        const maxTier = cars.reduce((max, car) => Math.max(max, car.tier), 1);
+        const tierSteps = Math.max(0, maxTier - 2);
+        const scale = 1 + tierSteps * SPAWN.pickupTierScalePerTier;
+        return Math.min(SPAWN.pickupTierScaleMax, scale);
     }
 
     getEdgeSpawnPoint(camera, forward, padding) {
@@ -197,8 +235,19 @@ export class Spawner {
     startWave() {
         this.waveNumber += 1;
         const scale = this.getWaveScale(this.waveNumber);
-        for (let i = 0; i < WAVES.baseEnemyCount; i += 1) {
+        const skirmisherCount = this.getSkirmisherCount(this.waveNumber);
+        const rangerCount = this.getRangerCount(this.waveNumber);
+        const armoredCount = this.getArmoredCount(this.waveNumber);
+        this.waveKillStart = this.combatSystem.stats.enemiesDestroyed;
+
+        for (let i = 0; i < skirmisherCount; i += 1) {
             this.spawnSkirmisher(scale);
+        }
+        for (let i = 0; i < rangerCount; i += 1) {
+            this.spawnRanger(scale);
+        }
+        for (let i = 0; i < armoredCount; i += 1) {
+            this.spawnArmored(scale);
         }
 
         this.pendingEliteType = this.getEliteTypeForWave(this.waveNumber);
@@ -207,7 +256,12 @@ export class Spawner {
     }
 
     finishWave() {
-        if (this.waveNumber >= WAVES.totalToWin) {
+        if (this.isEndless()) {
+            const waveKills = this.combatSystem.stats.enemiesDestroyed - this.waveKillStart;
+            this.endlessMode.completeWave(this.waveNumber, Math.max(0, waveKills));
+        }
+
+        if (!this.isEndless() && this.waveNumber >= WAVES.totalToWin) {
             this.wavePhase = 'complete';
             this.victoryReady = true;
             return;
@@ -218,6 +272,20 @@ export class Spawner {
     }
 
     getEliteTypeForWave(waveNumber) {
+        if (this.isEndless()) {
+            const config = this.endlessMode.getWaveConfig(waveNumber);
+            if (config.spawnBoss) {
+                return 'boss';
+            }
+            if (config.spawnChampion) {
+                return 'champion';
+            }
+            if (Math.random() < config.eliteChance) {
+                return 'champion';
+            }
+            return null;
+        }
+
         if (waveNumber % WAVES.bossEvery === 0) {
             return 'boss';
         }
@@ -228,12 +296,55 @@ export class Spawner {
     }
 
     getWaveScale(waveNumber) {
+        if (this.isEndless()) {
+            const config = this.endlessMode.getWaveConfig(waveNumber);
+            return {
+                hp: config.hpMultiplier,
+                damage: config.damageMultiplier,
+                speed: config.speedMultiplier
+            };
+        }
+
         const step = Math.max(0, waveNumber - 1);
         return {
             hp: 1 + step * WAVES.hpScalePerWave,
             damage: 1 + step * WAVES.damageScalePerWave,
             speed: 1 + step * WAVES.speedScalePerWave
         };
+    }
+
+    getSkirmisherCount(waveNumber) {
+        if (this.isEndless()) {
+            const config = this.endlessMode.getWaveConfig(waveNumber);
+            return config.enemyCount;
+        }
+
+        const step = Math.max(0, waveNumber - 1);
+        const extra = Math.min(
+            WAVES.maxExtraEnemies,
+            Math.floor(step / WAVES.enemyCountStep) * WAVES.enemyCountIncrease
+        );
+        return WAVES.baseEnemyCount + extra;
+    }
+
+    getRangerCount(waveNumber) {
+        if (waveNumber < WAVES.rangerStartWave) {
+            return 0;
+        }
+
+        const step = Math.floor((waveNumber - WAVES.rangerStartWave) / WAVES.rangerIncreaseEvery);
+        const count = WAVES.rangerCountBase + step;
+        return Math.min(WAVES.rangerCountMax, count);
+    }
+
+    getArmoredCount(waveNumber) {
+        if (waveNumber < WAVES.armoredStartWave) {
+            return 0;
+        }
+
+        const step = Math.floor((waveNumber - WAVES.armoredStartWave) / WAVES.armoredIncreaseEvery);
+        const count = WAVES.armoredCountBase + step;
+        return Math.min(WAVES.armoredCountMax, count);
     }
 
     hasEnemyType(type) {
@@ -243,8 +354,16 @@ export class Spawner {
         return this.combatSystem.enemies.some((enemy) => enemy.type === type);
     }
 
+    hasWaveEnemies() {
+        return this.combatSystem.enemies.some((enemy) => (
+            enemy.type === 'skirmisher'
+            || enemy.type === 'ranger'
+            || enemy.type === 'armored'
+        ));
+    }
+
     isVictoryReady() {
-        return this.victoryReady;
+        return this.victoryReady && !this.isEndless();
     }
 
     forceNextWave() {
@@ -279,12 +398,22 @@ export class Spawner {
     }
 
     getWaveStatus() {
+        const isEndless = this.isEndless();
+        const formattedWave = isEndless
+            ? this.endlessMode.getWaveConfig(this.waveNumber || 1).formattedWave
+            : `${this.waveNumber}`;
         return {
             number: this.waveNumber,
-            total: WAVES.totalToWin,
+            total: isEndless ? null : WAVES.totalToWin,
             phase: this.wavePhase,
             eliteType: this.activeEliteType || this.pendingEliteType,
-            nextWaveIn: this.wavePhase === 'waiting' ? this.waveTimer : 0
+            nextWaveIn: this.wavePhase === 'waiting' ? this.waveTimer : 0,
+            formattedWave,
+            isEndless
         };
+    }
+
+    isEndless() {
+        return Boolean(this.endlessMode && this.endlessMode.isEnabled());
     }
 }

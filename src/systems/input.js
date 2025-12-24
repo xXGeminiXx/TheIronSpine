@@ -15,7 +15,9 @@ export class InputController {
         this.targetY = 0;
         this.boostRequested = false;
         this.dropRequested = false;
+        this.dropHeld = false;
         this.pulseRequested = false;
+        this.reorderRequested = false;
 
         // Track whether the pointer has ever been used so we don't steer
         // toward (0,0) before the player touches the screen.
@@ -27,7 +29,7 @@ export class InputController {
         this.lastPointerScreenY = 0;
 
         this.keys = scene.input.keyboard
-            ? scene.input.keyboard.addKeys({ drop: 'SPACE', pulse: 'E' })
+            ? scene.input.keyboard.addKeys({ drop: 'SPACE', pulse: 'E', reorder: 'R' })
             : null;
 
         this.pointerDownHandler = (pointer) => {
@@ -77,11 +79,16 @@ export class InputController {
             if (Phaser.Input.Keyboard.JustDown(this.keys.pulse)) {
                 this.pulseRequested = true;
             }
+            if (Phaser.Input.Keyboard.JustDown(this.keys.reorder)) {
+                this.reorderRequested = true;
+            }
+            this.dropHeld = this.keys.drop.isDown;
         }
         if (!this.keys && this.scene.sys.game.device.input.touch) {
             // Prevent mobile taps from triggering pulses/drops by default.
             this.dropRequested = false;
             this.pulseRequested = false;
+            this.reorderRequested = false;
         }
     }
 
@@ -97,9 +104,19 @@ export class InputController {
         return requested;
     }
 
+    isDropHeld() {
+        return this.dropHeld;
+    }
+
     consumePulseRequest() {
         const requested = this.pulseRequested;
         this.pulseRequested = false;
+        return requested;
+    }
+
+    consumeReorderRequest() {
+        const requested = this.reorderRequested;
+        this.reorderRequested = false;
         return requested;
     }
 
@@ -107,8 +124,16 @@ export class InputController {
         this.dropRequested = true;
     }
 
+    setDropHeld(isHeld) {
+        this.dropHeld = isHeld;
+    }
+
     requestPulse() {
         this.pulseRequested = true;
+    }
+
+    requestReorder() {
+        this.reorderRequested = true;
     }
 
     destroy() {

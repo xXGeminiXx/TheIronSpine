@@ -5,10 +5,11 @@
  * The game uses ES modules loaded via CDN (no build tools required).
  *
  * SCENE FLOW:
- *   MenuScene     - Title screen, start button
- *   SettingsScene - Toggle screen shake, grid overlay, etc.
- *   GameScene     - Main gameplay loop
- *   EndScene      - Victory/defeat stats, restart option
+ *   MenuScene      - Title screen, start/settings/tutorial buttons
+ *   TutorialScene  - Interactive how-to-play guide (8 pages)
+ *   SettingsScene  - Toggle screen shake, grid overlay, endless mode, etc.
+ *   GameScene      - Main gameplay loop
+ *   EndScene       - Victory/defeat stats, achievements, restart option
  *
  * SCALING:
  *   The game uses Phaser.Scale.FIT to maintain aspect ratio while filling
@@ -21,9 +22,17 @@
 
 import { GAME, PALETTE, RENDER } from './config.js';
 import { MenuScene } from './scenes/menu-scene.js';
+import { TutorialScene } from './scenes/tutorial-scene.js';
 import { SettingsScene } from './scenes/settings-scene.js';
 import { GameScene } from './scenes/game-scene.js';
 import { EndScene } from './scenes/end-scene.js';
+
+// ----------------------------------------------------------------------------
+// PHASER CONFIGURATION
+// ----------------------------------------------------------------------------
+// Scene order matters: first scene in array is the initial scene.
+// TutorialScene added between Menu and Settings for logical flow.
+// ----------------------------------------------------------------------------
 
 const config = {
     type: Phaser.AUTO,
@@ -45,7 +54,9 @@ const config = {
         width: GAME.width,
         height: GAME.height
     },
-    scene: [MenuScene, SettingsScene, GameScene, EndScene]
+    // Scene registration order: Menu -> Tutorial -> Settings -> Game -> End
+    scene: [MenuScene, TutorialScene, SettingsScene, GameScene, EndScene]
 };
 
+// Initialize the game
 new Phaser.Game(config);

@@ -1,5 +1,6 @@
 import { BUILD, COLORS, PALETTE, UI, OVERDRIVE, RENDER } from '../config.js';
 import { SETTINGS } from '../core/settings.js';
+import { formatCompact, formatNumber } from '../core/verylargenumbers.js';
 
 const HUD_DEPTH = 100;
 
@@ -190,7 +191,7 @@ export class Hud {
         this.updatePulseMeter(overdriveState);
         this.updateEngineWeaponText(engineWeaponState);
         this.timerText.setText(this.formatTime(runTimeSeconds));
-        this.killText.setText(`Kills: ${this.combatSystem.stats.enemiesDestroyed}`);
+        this.killText.setText(`Kills: ${formatCompact(this.combatSystem.stats.enemiesDestroyed)}`);
         this.updateWaveText(waveStatus);
         this.updateMergeFlash(deltaSeconds);
         this.updateDebugOverlay();
@@ -250,9 +251,12 @@ export class Hud {
         }
 
         if (waveStatus.phase === 'waiting') {
-            const nextWave = Math.min(waveStatus.number + 1, waveStatus.total);
+            const nextWave = waveStatus.number + 1;
             const remaining = Math.max(0, waveStatus.nextWaveIn);
-            this.waveText.setText(`Wave ${nextWave}/${waveStatus.total} in ${remaining.toFixed(1)}s`);
+            const nextWaveLabel = waveStatus.isEndless
+                ? formatNumber(nextWave, 0)
+                : `${nextWave}/${waveStatus.total}`;
+            this.waveText.setText(`Wave ${nextWaveLabel} in ${remaining.toFixed(1)}s`);
             this.waveText.setColor(PALETTE.uiText);
             return;
         }
@@ -264,7 +268,10 @@ export class Hud {
             suffix = ' - Champion';
         }
 
-        this.waveText.setText(`Wave ${waveStatus.number}/${waveStatus.total}${suffix}`);
+        const waveLabel = waveStatus.isEndless
+            ? formatNumber(waveStatus.number, 0)
+            : `${waveStatus.number}/${waveStatus.total}`;
+        this.waveText.setText(`Wave ${waveLabel}${suffix}`);
         this.waveText.setColor(suffix ? PALETTE.warning : PALETTE.uiText);
     }
 

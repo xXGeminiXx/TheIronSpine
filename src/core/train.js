@@ -48,6 +48,9 @@ export class Train {
     constructor(scene, startX, startY, eventHandlers = {}) {
         this.scene = scene;
         this.eventHandlers = eventHandlers;
+        this.speedMultiplier = 1;
+        this.turnSpeedMultiplier = 1;
+        this.hpMultiplier = 1;
         this.engine = this.createEngine(startX, startY);
         this.cars = [];
         this.couplings = [];
@@ -94,20 +97,24 @@ export class Train {
     updateEngineMovement(deltaSeconds, targetX, targetY) {
         const engine = this.engine;
         const desiredAngle = angleTo(engine.x, engine.y, targetX, targetY);
-        const turnSpeed = Phaser.Math.DegToRad(TRAIN.turnSpeedDeg);
+        const turnSpeed = Phaser.Math.DegToRad(
+            TRAIN.turnSpeedDeg * this.turnSpeedMultiplier
+        );
         engine.rotation = Phaser.Math.Angle.RotateTo(
             engine.rotation,
             desiredAngle,
             turnSpeed * deltaSeconds
         );
 
-        const speedMultiplier = this.boostRemaining > 0
+        const boostMultiplier = this.boostRemaining > 0
             ? TRAIN.boostMultiplier
             : 1;
-        const desiredSpeed = TRAIN.engineSpeed * speedMultiplier;
+        const desiredSpeed = TRAIN.engineSpeed
+            * boostMultiplier
+            * this.speedMultiplier;
         const acceleration = desiredSpeed >= this.currentSpeed
-            ? TRAIN.acceleration
-            : TRAIN.deceleration;
+            ? TRAIN.acceleration * this.speedMultiplier
+            : TRAIN.deceleration * this.speedMultiplier;
         this.currentSpeed = approach(
             this.currentSpeed,
             desiredSpeed,
@@ -320,8 +327,8 @@ export class Train {
             rotation: 0,
             // Keep collision radius stable while silhouette proportions change.
             radius: TRAIN.engineHitRadius,
-            hp: TRAIN.engineHp,
-            maxHp: TRAIN.engineHp,
+            hp: this.getEngineMaxHp(),
+            maxHp: this.getEngineMaxHp(),
             weaponCooldown: 0,
             accentParts,
             container
@@ -402,6 +409,11 @@ export class Train {
     }
 
     getCarHpForTier(tier) {
+        const base = this.getBaseCarHpForTier(tier);
+        return Math.round(base * this.hpMultiplier);
+    }
+
+    getBaseCarHpForTier(tier) {
         const tiers = TRAIN.carHpByTier;
         if (tier <= tiers.length) {
             return tiers[tier - 1];
@@ -411,6 +423,35 @@ export class Train {
         const previous = tiers.length > 1 ? tiers[tiers.length - 2] : last;
         const step = last - previous;
         return last + step * (tier - tiers.length);
+    }
+
+    getEngineMaxHp() {
+        return Math.round(TRAIN.engineHp * this.hpMultiplier);
+    }
+
+    setSpeedMultiplier(multiplier) {
+        const clamped = Math.max(0.5, multiplier);
+        this.speedMultiplier = clamped;
+        this.turnSpeedMultiplier = clamped;
+    }
+
+    setHpMultiplier(multiplier) {
+        const clamped = Math.max(0.5, multiplier);
+        const engineRatio = this.engine.maxHp > 0
+            ? this.engine.hp / this.engine.maxHp
+            : 1;
+        this.hpMultiplier = clamped;
+        this.engine.maxHp = this.getEngineMaxHp();
+        this.engine.hp = Math.min(
+            this.engine.maxHp,
+            Math.round(this.engine.maxHp * engineRatio)
+        );
+
+        for (const car of this.cars) {
+            const ratio = car.maxHp > 0 ? car.hp / car.maxHp : 1;
+            car.maxHp = this.getCarHpForTier(car.tier);
+            car.hp = Math.min(car.maxHp, Math.round(car.maxHp * ratio));
+        }
     }
 
     addCar(colorKey, tier = 1) {
@@ -435,6 +476,14 @@ export class Train {
 
     createColorAttachment(colorKey) {
         if (colorKey === 'red') {
+            // Red = assault: forward vents + twin barrel block.
+            const vent = this.scene.add.rectangle(
+                TRAIN.carSize.width * 0.05,
+                -TRAIN.carSize.height * 0.32,
+                TRAIN.carSize.width * 0.32,
+                TRAIN.carSize.height * 0.12,
+                0x1a1a1a
+            );
             const barrelLeft = this.scene.add.rectangle(
                 TRAIN.carSize.width * 0.42,
                 -TRAIN.carSize.height * 0.2,
@@ -449,10 +498,18 @@ export class Train {
                 TRAIN.carSize.height * 0.12,
                 0x1a1a1a
             );
-            return [barrelLeft, barrelRight];
+            return [vent, barrelLeft, barrelRight];
         }
 
         if (colorKey === 'blue') {
+            // Blue = control: coil pod + stabilizer housing.
+            const base = this.scene.add.rectangle(
+                0,
+                -TRAIN.carSize.height * 0.1,
+                TRAIN.carSize.width * 0.32,
+                TRAIN.carSize.height * 0.16,
+                0x1a1a1a
+            );
             const coil = this.scene.add.circle(
                 0,
                 -TRAIN.carSize.height * 0.35,
@@ -460,10 +517,18 @@ export class Train {
                 0xcce6ff
             );
             coil.setStrokeStyle(2, 0x1a1a1a);
-            return [coil];
+            return [base, coil];
         }
 
         if (colorKey === 'yellow') {
+            // Yellow = piercing: long cannon block + recoil plates.
+            const recoilPlate = this.scene.add.rectangle(
+                TRAIN.carSize.width * 0.22,
+                0,
+                TRAIN.carSize.width * 0.1,
+                TRAIN.carSize.height * 0.5,
+                0x1a1a1a
+            );
             const cannon = this.scene.add.rectangle(
                 TRAIN.carSize.width * 0.5,
                 0,
@@ -471,7 +536,7 @@ export class Train {
                 TRAIN.carSize.height * 0.2,
                 0x1a1a1a
             );
-            return [cannon];
+            return [recoilPlate, cannon];
         }
 
         return [];
@@ -529,6 +594,54 @@ export class Train {
         }
 
         return car;
+    }
+
+    getCarSlots() {
+        return this.cars.map((car) => ({
+            x: car.x,
+            y: car.y,
+            rotation: car.rotation
+        }));
+    }
+
+    applyCarOrder(newOrder, slots = null) {
+        devAssert(Array.isArray(newOrder), 'Car order must be an array');
+        devAssert(
+            newOrder.length === this.cars.length,
+            'Car order length must match current car count'
+        );
+        if (slots) {
+            devAssert(
+                slots.length === newOrder.length,
+                'Car slot count must match car order length'
+            );
+        }
+
+        // Apply the new ordering first so the chain logic sees the updated spine.
+        this.cars = [...newOrder];
+
+        this.cars.forEach((car, index) => {
+            // Clear any hold so reordering takes effect immediately.
+            car.followHoldSeconds = 0;
+
+            if (!slots) {
+                return;
+            }
+
+            const slot = slots[index];
+            if (!slot) {
+                return;
+            }
+
+            car.x = slot.x;
+            car.y = slot.y;
+            car.rotation = slot.rotation;
+            car.container.x = car.x;
+            car.container.y = car.y;
+            car.container.rotation = car.rotation;
+        });
+
+        this.updateCouplings();
     }
 
     applyDamageToSegment(segment, amount) {

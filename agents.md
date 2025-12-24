@@ -249,6 +249,8 @@ requestAnimationFrame(gameLoop);
 
 3. **Ask if uncertain.** David prefers questions over wrong assumptions.
 
-4. **Document as you go.** Comments explaining "why" are valuable. Comments explaining "what" are usually code smell.
+4. **Document as you go.** Comments explaining "why" are valuable. Heavier-than-normal rationale comments are expected for core systems.
 
-5. **The game should be fun.** If something isn't fun, it should be cut or changed, regardless of how clever the implementation is.
+5. **Keep core systems isolated.** Each file represents one core idea (merge logic in `src/core/merge.js`, reordering in its own module). Functions stay single-purpose; avoid mixing system logic across files.
+
+6. **The game should be fun.** If something isn't fun, it should be cut or changed, regardless of how clever the implementation is.

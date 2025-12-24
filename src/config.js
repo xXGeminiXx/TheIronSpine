@@ -15,6 +15,58 @@
  *   ENEMIES    - Enemy type definitions
  *   SPAWN      - Pickup and enemy spawn rules
  *   WAVES      - Wave progression and scaling
+ *   ENDLESS    - Endless mode configuration
+ *   DROP_PROTECTION - Prevent accidental car drops
+ *
+ * ============================================================================
+ * EXTENSIBILITY GUIDE - HOW TO ADD NEW CONTENT
+ * ============================================================================
+ *
+ * ADDING A NEW CAR COLOR:
+ * -----------------------
+ * 1. Add entry to COLORS object (see orange example below)
+ * 2. Add color key to COLOR_KEYS array
+ * 3. Add weapon stats to WEAPON_STATS (3 tiers)
+ * 4. Add engine weapon stats to ENGINE_WEAPON.stats
+ * 5. Add projectile config to PROJECTILES
+ *
+ * Example (already included but commented out):
+ *
+ *   COLORS.orange = {
+ *       key: 'orange',
+ *       name: 'Orange',
+ *       hex: '#ff8800',
+ *       phaser: 0xff8800
+ *   };
+ *
+ *   WEAPON_STATS.orange = [
+ *       { fireRate: 0.5, damage: 50, range: 150, projectileSpeed: 300, aoeRadius: 60 },
+ *       { fireRate: 0.7, damage: 75, range: 160, projectileSpeed: 320, aoeRadius: 80 },
+ *       { fireRate: 0.9, damage: 100, range: 170, projectileSpeed: 340, aoeRadius: 100 }
+ *   ];
+ *
+ * ADDING A NEW ENEMY TYPE:
+ * ------------------------
+ * 1. Add entry to ENEMIES object with all required fields
+ * 2. Update spawner.js to include the new enemy type in spawn logic
+ *
+ * Required fields for enemies:
+ *   - name: Display name
+ *   - hp: Base health points
+ *   - speed: Movement speed
+ *   - damage: Contact damage
+ *   - radius: Hit circle radius
+ *   - armor: Damage reduction (0 = none)
+ *   - color: Phaser hex color for body
+ *   - trim: Phaser hex color for trim/accent
+ *   - size: { width, height } for rendering
+ *
+ * Optional fields:
+ *   - shootsProjectiles: boolean
+ *   - projectileDamage: number
+ *   - projectileSpeed: number
+ *   - attackRange: number
+ *   - abilities: ['charge', 'spawn_minions', etc.]
  *
  * MODIFYING VALUES:
  *   Feel free to experiment! Good starting points:
@@ -22,6 +74,7 @@
  *   - TRAIN.maxCars: Allow longer trains (default: 12)
  *   - WAVES.totalToWin: Shorter/longer runs (default: 20)
  *   - WEAPON_STATS: Adjust damage/fire rates for balance
+ *   - ENDLESS.enabled: Toggle infinite mode
  */
 
 export const DEBUG = Object.freeze({
@@ -52,11 +105,11 @@ export const GAME = Object.freeze({
     width: 960,
     height: 540,
     backgroundColor: PALETTE.background,
-    spawnInvulnerableSeconds: 1.5
+    spawnInvulnerableSeconds: 2.0
 });
 
 export const BUILD = Object.freeze({
-    version: 'v1.1'
+    version: 'v1.2.1'
 });
 
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'
@@ -92,7 +145,7 @@ export const TRAIN = Object.freeze({
     boostCooldownSeconds: 5,
     followFactor: 0.15,
     maxCars: 12,
-    engineHp: 50,
+    engineHp: 55,
     carHpByTier: [20, 30, 40],
     engineSize: { width: 110, height: 34 },
     engineHitRadius: 32,
@@ -247,32 +300,78 @@ export const ENEMIES = Object.freeze({
         color: 0xa0a0a0,
         trim: 0xff8844,
         size: { width: 46, height: 30 }
+    },
+    armored: {
+        name: 'Armored',
+        hp: 120,
+        speed: 40,
+        damage: 15,
+        radius: 22,
+        armor: 10,
+        color: 0x8f8f8f,
+        trim: 0xffcc00,
+        size: { width: 40, height: 30 }
+    },
+    ranger: {
+        name: 'Ranger',
+        hp: 30,
+        speed: 80,
+        damage: 8,
+        radius: 16,
+        armor: 0,
+        color: 0xf0f0f0,
+        trim: 0x66aaff,
+        size: { width: 28, height: 20 },
+        fireCooldown: 2,
+        projectileSpeed: 300,
+        projectileRange: 520,
+        projectileSize: { width: 10, height: 10 },
+        projectileColor: 0xff5555,
+        projectileSpreadDeg: 8,
+        orbitDistance: 220
     }
 });
 
 export const SPAWN = Object.freeze({
     pickupCountMin: 2,
     pickupCountMax: 3,
-    pickupSpawnMinSeconds: 10,
-    pickupSpawnMaxSeconds: 14,
+    pickupSpawnMinSeconds: 9,
+    pickupSpawnMaxSeconds: 12,
     pickupDriftSpeed: 30,
     pickupLifetimeSeconds: 15,
     spawnPadding: 60,
     pickupPaddingPerCar: 1.5,
     enemyPaddingPerCar: 3,
-    maxExtraPadding: 50
+    maxExtraPadding: 50,
+    pickupTimeScalePerWave: 0.015,
+    pickupTimeScaleMax: 1.6,
+    pickupCountScalePerWave: 0.02,
+    pickupCountScaleMin: 0.7,
+    pickupTierScalePerTier: 0.12,
+    pickupTierScaleMax: 1.5
 });
 
 export const WAVES = Object.freeze({
     totalToWin: 20,
-    baseEnemyCount: 8,
-    initialDelaySeconds: 4,
-    interWaveDelaySeconds: 2.5,
+    baseEnemyCount: 6,
+    initialDelaySeconds: 5,
+    interWaveDelaySeconds: 2.8,
     championEvery: 5,
     bossEvery: 10,
-    hpScalePerWave: 0.09,
-    damageScalePerWave: 0.05,
-    speedScalePerWave: 0.01
+    rangerStartWave: 6,
+    armoredStartWave: 9,
+    rangerIncreaseEvery: 5,
+    armoredIncreaseEvery: 6,
+    rangerCountBase: 1,
+    rangerCountMax: 3,
+    armoredCountBase: 1,
+    armoredCountMax: 2,
+    enemyCountStep: 4,
+    enemyCountIncrease: 1,
+    maxExtraEnemies: 5,
+    hpScalePerWave: 0.07,
+    damageScalePerWave: 0.04,
+    speedScalePerWave: 0.008
 });
 
 export const OVERDRIVE = Object.freeze({
@@ -283,7 +382,17 @@ export const OVERDRIVE = Object.freeze({
 
 export const EFFECTS = Object.freeze({
     carExplosionDamage: 15,
-    carExplosionRadius: 50
+    carExplosionRadius: 50,
+    mergeParticleCount: 12,
+    mergeParticleSpeed: 90,
+    mergeParticleLife: 0.45,
+    explosionParticleCount: 18,
+    explosionParticleSpeed: 140,
+    explosionParticleLife: 0.6,
+    smokeInterval: 0.2,
+    smokeLife: 0.8,
+    smokeSpeed: 22,
+    pulseRingDuration: 0.45
 });
 
 export const UI = Object.freeze({
@@ -295,3 +404,152 @@ export const UI = Object.freeze({
     // Generous padding to avoid browser chrome overlap (bookmark bars, etc)
     hudPadding: 32
 });
+
+// ============================================================================
+// ENDLESS MODE CONFIGURATION
+// ============================================================================
+// Toggle ENDLESS.enabled to switch between 20-wave classic and infinite mode
+// ============================================================================
+
+export const ENDLESS = Object.freeze({
+    // Set to true for infinite waves (no win condition)
+    enabled: false,
+
+    // Difficulty curve: 'linear', 'logarithmic', 'exponential'
+    // logarithmic = fast early growth, slows down (recommended)
+    curveType: 'logarithmic',
+
+    // Scaling rates per wave (multipliers compound)
+    enemyHpScaleRate: 0.09,
+    enemyDamageScaleRate: 0.05,
+    enemySpeedScaleRate: 0.01,
+
+    // Caps to keep game playable even at wave 10000
+    maxEnemiesAtOnce: 50,
+    maxEnemyHpMultiplier: 1000,
+    maxEnemyDamageMultiplier: 50,
+
+    // Milestone waves (celebrations)
+    milestones: [10, 25, 50, 100, 150, 200, 250, 500, 1000],
+
+    // Rubber-banding (help struggling players)
+    rubberBandEnabled: true,
+    rubberBandThreshold: 3,
+    rubberBandReduction: 0.15
+});
+
+// ============================================================================
+// DROP PROTECTION CONFIGURATION
+// ============================================================================
+// Prevents accidental loss of all cars when spamming the drop button
+// ============================================================================
+
+export const DROP_PROTECTION = Object.freeze({
+    // Base cooldown between drops (ms)
+    dropCooldownMs: 200,
+
+    // Cooldown multiplier for consecutive rapid drops
+    consecutiveMultiplier: 1.5,
+
+    // Maximum cooldown cap (ms)
+    maxCooldownMs: 2000,
+
+    // Hold time required to drop the LAST car (ms)
+    lastCarHoldMs: 500,
+
+    // Warn when this many cars or fewer remain
+    warningThreshold: 3,
+
+    // Reset consecutive counter after this idle time (ms)
+    resetAfterMs: 3000,
+
+    // Minimum cars to keep (0 = can drop all, 1 = keep at least one)
+    minimumCars: 1
+});
+
+// ============================================================================
+// FUTURE CAR COLORS (Uncomment to enable)
+// ============================================================================
+// These are ready-to-use color definitions for post-V1 content.
+// To enable a new color:
+//   1. Uncomment the COLORS entry below
+//   2. Add the key to COLOR_KEYS
+//   3. Add WEAPON_STATS for the color
+// ============================================================================
+
+/*
+// ORANGE - Area damage / Explosions
+COLORS.orange = {
+    key: 'orange',
+    name: 'Orange',
+    hex: '#ff8800',
+    phaser: 0xff8800
+};
+
+// GREEN - Damage over time / Corrosion
+COLORS.green = {
+    key: 'green',
+    name: 'Green',
+    hex: '#44ff44',
+    phaser: 0x44ff44
+};
+
+// PURPLE - Chain lightning / Multi-target
+COLORS.purple = {
+    key: 'purple',
+    name: 'Purple',
+    hex: '#aa44ff',
+    phaser: 0xaa44ff
+};
+
+// To enable, update COLOR_KEYS:
+// export const COLOR_KEYS = Object.freeze(['red', 'blue', 'yellow', 'orange', 'green', 'purple']);
+*/
+
+// ============================================================================
+// FUTURE ENEMY TYPES (Uncomment to enable)
+// ============================================================================
+// Ready-to-use enemy definitions for post-V1 content.
+// ============================================================================
+
+/*
+ENEMIES.armored = {
+    name: 'Armored',
+    hp: 40,
+    speed: 80,
+    damage: 8,
+    radius: 18,
+    armor: 5,           // High armor - use yellow weapons!
+    color: 0x606060,
+    trim: 0x888888,
+    size: { width: 28, height: 20 }
+};
+
+ENEMIES.ranger = {
+    name: 'Ranger',
+    hp: 25,
+    speed: 60,
+    damage: 3,          // Low contact damage
+    radius: 12,
+    armor: 0,
+    color: 0xcc8844,
+    trim: 0xffaa66,
+    size: { width: 20, height: 14 },
+    shootsProjectiles: true,
+    projectileDamage: 8,
+    projectileSpeed: 300,
+    attackRange: 250
+};
+
+ENEMIES.swarm = {
+    name: 'Swarm',
+    hp: 5,              // Very low HP
+    speed: 180,         // Very fast
+    damage: 2,
+    radius: 8,
+    armor: 0,
+    color: 0x88ff88,
+    trim: 0xaaffaa,
+    size: { width: 12, height: 10 }
+};
+*/

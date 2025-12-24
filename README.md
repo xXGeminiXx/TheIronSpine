@@ -41,8 +41,10 @@ Built in about 8 hours as a free alternative to a paywalled mobile game I used t
 - **Move pointer**: Steer the engine toward cursor/touch position.
 - **Click/tap**: Trigger a speed boost (2s duration, 5s cooldown).
 - **Collect pickups**: Drive the engine into colored rectangles to add cars.
-- **Spacebar**: Jettison the tail car (counts as lost).
+- **Spacebar**: Jettison the tail car (counts as lost). Hold to drop to the last car.
+- **R**: Reorder cars (higher tiers toward the engine; group colors within tiers).
 - **E**: Trigger Overdrive Pulse when the meter is full.
+- **ESC / P**: Pause overlay (Resume / Settings / Quit).
 - **Numpad .**: Toggle dev console (debug/mod menu). (Numpad decimal only, not the main period key.)
 
 ## What Is Implemented (MVP)
@@ -53,22 +55,29 @@ Built in about 8 hours as a free alternative to a paywalled mobile game I used t
 - Pickup spawning and collection
 - Merge system: adjacent same-color, same-tier cars merge into 1 higher-tier car
 - Skirmisher + Champion + Boss enemy types (milestone waves)
+- Armored + Ranger enemy types (heavy tanks and ranged pressure)
 - Auto-fire weapons (Red=rapid, Blue=slow, Yellow=cannon)
 - Engine weapon that adapts to dominant car color and count
+- Car reordering (R / SORT) sorts tiers toward the engine and groups colors
 - Overdrive Pulse (screen-wide damage) on charge
 - Wave-based enemy spawning with escalation and elite milestones
 - Wave-clear win condition (default 20 waves)
 - HUD: engine HP bar, car HP segments, timer, kill count, wave prompt, pulse meter
+- Tutorial scene (How to Play)
+- Achievements + stats tracker with gameplay bonuses
+- Endless mode toggle (in Settings)
+- Big-number formatting for high wave/kill counts
+- Pause overlay (ESC/P) with Resume/Settings/Quit
+- Drop protection (cooldown + hold-to-drop near last car)
 - Menu + settings screen
+- UI scale toggle (small/medium/large)
+- Procedural audio + light VFX polish
 - Dev console (spawn pickups/enemies, win run, toggle debug flags)
 - End screen with run stats + settings shortcut
 
 ## Intentionally Deferred
 
-- Additional enemy types (Armored, Ranger)
-- Car reordering mechanic
-- Sound/music
-- Particles and visual polish
+- Music
 - Meta-progression / unlocks
 - Mobile-specific optimizations
 - Leaderboards / save system
@@ -84,7 +93,8 @@ Works on phones and tablets! Just open the link and play.
 
 - Touch anywhere to steer the train toward your finger
 - Tap to boost (or use the BOOST button)
-- On-screen buttons for BOOST, DROP, and PULSE appear automatically
+- On-screen buttons for BOOST, DROP, SORT, and PULSE appear automatically
+- SORT button appears alongside other controls to reorder the chain
 - Dev console is disabled on mobile (no keyboard needed)
 
 ## Versioning
@@ -99,18 +109,24 @@ Works on phones and tablets! Just open the link and play.
 
 ## Manual Test Plan (2 minutes)
 
-1. **Start game**: Click/tap on menu. Verify game starts with engine + 1 car.
+1. **Start game**: Click/tap on menu. Verify game starts with engine + 1 car (plus any achievement bonus cars).
 2. **Steering**: Move pointer around. Engine should follow smoothly.
 3. **Boost**: Tap/click while moving. Train should speed up briefly.
 4. **Collect pickups**: Steer into colored rectangles. Cars should attach to tail.
 5. **Trigger merge**: Collect 2 same-color, same-tier cars adjacent. They should merge with flash + camera shake.
-6. **Jettison**: Press Spacebar. Tail car should drop without explosion.
-7. **Overdrive**: Wait for pulse meter, press E. Enemies should take damage.
-8. **Combat**: Let enemies spawn and attack. Verify cars auto-fire and kill enemies.
-9. **Take damage**: Let an enemy hit your train. Verify engine HP bar decreases.
-10. **Waves**: Clear waves until a champion/boss appears. Verify elites spawn after skirmishers.
-11. **Settings**: Return to menu, toggle screen shake/grid, and confirm they apply on a new run.
-12. **Restart**: Die or win, then tap to restart. Verify stats reset and game restarts cleanly.
+6. **Jettison + Protection**: Press Spacebar. Tail drops without explosion; dropping to last car requires a short hold.
+7. **Reorder**: Press R (or SORT on mobile). Higher tiers should shift toward the engine and colors group.
+8. **Overdrive**: Wait for pulse meter, press E. Enemies should take damage.
+9. **Pause overlay**: Press ESC/P, resume, and verify the game continues.
+10. **Combat**: Let enemies spawn and attack. Verify cars auto-fire and kill enemies.
+11. **Armored/Ranger**: Survive until they spawn; confirm armored is slow/tanky and ranger fires from range.
+12. **UI Scale + Endless**: Open settings, cycle UI scale, toggle Endless Mode, start a run and verify the wave HUD shows no total.
+13. **Tutorial**: From menu, open How to Play and page through tips.
+14. **Audio/VFX**: Confirm engine hum, merge sound, pulse sound, smoke and particle bursts.
+15. **Take damage**: Let an enemy hit your train. Verify engine HP bar decreases.
+16. **Waves**: Clear waves until a champion/boss appears. Verify elites spawn after skirmishers.
+17. **Stats/Achievements**: End a run and confirm stats + unlock popups appear.
+18. **Restart**: Die or win, then tap to restart. Verify stats reset and game restarts cleanly.
 
 ## File Structure
 
@@ -126,6 +142,8 @@ tank-train/
 │   │   ├── train.js     # Train + car logic
 │   │   ├── pickups.js   # Pickup spawning/collection
 │   │   ├── merge.js     # Merge detection + animation
+│   │   ├── reorder.js   # Car reordering logic
+│   │   ├── verylargenumbers.js # Big-number formatting/scaling
 │   │   ├── math.js      # Utility math functions
 │   │   ├── debug.js     # Debug logging
 │   │   └── settings.js  # Runtime settings toggles
@@ -133,11 +151,19 @@ tank-train/
 │   │   ├── combat.js       # Enemies + projectiles
 │   │   ├── spawner.js      # Wave spawning
 │   │   ├── hud.js          # UI overlay
-│   │   ├── dev-console.js  # Debug/mod menu
 │   │   ├── input.js        # Keyboard/mouse input
-│   │   └── mobile-controls.js # Touch buttons
+│   │   ├── mobile-controls.js # Touch buttons
+│   │   ├── pause-overlay.js # Pause menu overlay
+│   │   ├── drop-protection.js # Drop cooldown/hold protection
+│   │   ├── endless-mode.js # Infinite wave logic
+│   │   ├── achievements.js # Persistent achievements + bonuses
+│   │   ├── stats-tracker.js # Run history + totals
+│   │   ├── dev-console.js  # Debug/mod menu
+│   │   ├── audio.js        # Procedural SFX
+│   │   └── vfx.js          # Particle effects
 │   └── scenes/
 │       ├── menu-scene.js
+│       ├── tutorial-scene.js
 │       ├── settings-scene.js
 │       ├── game-scene.js
 │       └── end-scene.js

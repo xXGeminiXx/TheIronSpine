@@ -175,6 +175,7 @@ export class MergeManager {
                 x: (cars[0].x + cars[1].x) * 0.5,
                 y: (cars[0].y + cars[1].y) * 0.5
             };
+            merge.spawnPosition = spawnPosition;
             this.train.mergeCars(
                 merge.startIndex,
                 merge.newTier,
@@ -222,9 +223,17 @@ export class MergeManager {
         }
 
         if (this.eventHandlers.onMergeCompleted) {
-            this.eventHandlers.onMergeCompleted(colorKey, colorHex);
+            this.eventHandlers.onMergeCompleted(
+                colorKey,
+                colorHex,
+                this.activeMerge.spawnPosition || null
+            );
         }
 
         this.activeMerge = null;
+    }
+
+    isBusy() {
+        return Boolean(this.activeMerge);
     }
 }

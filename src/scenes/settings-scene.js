@@ -5,7 +5,12 @@
  * Settings persist only for the current session (no localStorage).
  */
 import { PALETTE, UI, RENDER } from '../config.js';
-import { SETTINGS, toggleSetting } from '../core/settings.js';
+import {
+    SETTINGS,
+    toggleSetting,
+    cycleUiScale,
+    getUiScaleLabel
+} from '../core/settings.js';
 
 export class SettingsScene extends Phaser.Scene {
     constructor() {
@@ -27,6 +32,8 @@ export class SettingsScene extends Phaser.Scene {
         this.titleText.setResolution(RENDER.textResolution);
 
         const toggles = [
+            { key: 'uiScale', label: 'UI Scale', desc: 'Small / Medium / Large', type: 'cycle' },
+            { key: 'endlessMode', label: 'Endless Mode', desc: 'Infinite waves (no win)' },
             { key: 'screenShake', label: 'Screen Shake', desc: 'Camera effects on hits' },
             { key: 'showGrid', label: 'Grid Background', desc: 'Show ground pattern' },
             { key: 'invincible', label: 'Easy Mode', desc: 'Train cannot take damage' },
@@ -57,7 +64,11 @@ export class SettingsScene extends Phaser.Scene {
 
             text.setInteractive({ useHandCursor: true });
             text.on('pointerdown', () => {
-                toggleSetting(toggle.key);
+                if (toggle.type === 'cycle') {
+                    cycleUiScale();
+                } else {
+                    toggleSetting(toggle.key);
+                }
                 this.updateToggleText(text, toggle);
             });
 
@@ -98,6 +109,12 @@ export class SettingsScene extends Phaser.Scene {
     }
 
     updateToggleText(text, toggle) {
+        if (toggle.type === 'cycle') {
+            const label = getUiScaleLabel().toUpperCase();
+            text.setText(`${toggle.label}: ${label}`);
+            return;
+        }
+
         const value = SETTINGS[toggle.key] ? 'ON' : 'OFF';
         text.setText(`${toggle.label}: ${value}`);
     }

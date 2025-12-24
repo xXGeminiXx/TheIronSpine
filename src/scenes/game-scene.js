@@ -7,7 +7,7 @@
  * GAME LOOP (each frame):
  *   1. Process input (pointer position, button presses)
  *   2. Update train (engine steering, car following)
- *   3. Handle tactical inputs (drop car, overdrive pulse)
+ *   3. Handle tactical inputs (drop car, reorder, overdrive pulse)
  *   4. Update pickups (spawning, collection, drift)
  *   5. Check/execute merges
  *   6. Update combat (enemy AI, projectiles, damage)
@@ -27,13 +27,17 @@
 import {
     CAMERA,
     COLOR_KEYS,
+    DROP_PROTECTION,
+    ENDLESS,
     EFFECTS,
     OVERDRIVE,
-    PALETTE
+    PALETTE,
+    TRAIN
 } from '../config.js';
 import { PickupManager, resetPickupIdCounter } from '../core/pickups.js';
 import { MergeManager } from '../core/merge.js';
-import { SETTINGS } from '../core/settings.js';
+import { ReorderManager } from '../core/reorder.js';
+import { SETTINGS, getUiScale } from '../core/settings.js';
 import { Train, resetSegmentIdCounter } from '../core/train.js';
 import { pickRandom } from '../core/math.js';
 import { InputController } from '../systems/input.js';
@@ -42,6 +46,22 @@ import { CombatSystem, resetCombatIdCounters } from '../systems/combat.js';
 import { DevConsole } from '../systems/dev-console.js';
 import { Hud } from '../systems/hud.js';
 import { MobileControls } from '../systems/mobile-controls.js';
+import { AudioManager } from '../systems/audio.js';
+import { VfxSystem } from '../systems/vfx.js';
+import {
+    DropProtection,
+    createDeniedFlash,
+    createLastCarWarning,
+    drawCooldownBar,
+    drawHoldProgress
+} from '../systems/drop-protection.js';
+import {
+    EndlessMode,
+    createMilestoneCelebration,
+    createNewRecordEffect
+} from '../systems/endless-mode.js';
+import { addPauseOverlay } from '../systems/pause-overlay.js';
+import { getAchievementBonuses } from '../systems/achievements.js';
 
 export class GameScene extends Phaser.Scene {
     constructor() {
@@ -61,25 +81,57 @@ export class GameScene extends Phaser.Scene {
         const startX = 0;
         const startY = 0;
 
+        this.achievementBonuses = getAchievementBonuses();
+        this.bonusMultipliers = this.buildBonusMultipliers(this.achievementBonuses);
+        this.overdriveChargeRate = this.bonusMultipliers.charge;
+
         this.train = new Train(this, startX, startY, {
             onCarDestroyed: (car, reason) => this.onCarDestroyed(car, reason),
             onEngineDestroyed: () => this.endRun('defeat'),
             isInvincible: () => SETTINGS.invincible
         });
+        this.train.setSpeedMultiplier(this.bonusMultipliers.speed);
+        this.train.setHpMultiplier(this.bonusMultipliers.hp);
 
         this.inputController = new InputController(this);
+        this.audio = new AudioManager(this);
         this.combatSystem = new CombatSystem(this, this.train, {
             onTrainHit: (segment) => this.onTrainHit(segment),
-            onEnemyDestroyed: () => this.onEnemyDestroyed()
+            onEnemyDestroyed: (enemy) => this.onEnemyDestroyed(enemy),
+            onWeaponFired: (colorKey) => this.audio.playWeapon(colorKey),
+            onEnemyWeaponFired: () => this.audio.playEnemyShot()
         });
+        this.combatSystem.setBonusMultipliers(this.bonusMultipliers);
         this.pickupManager = new PickupManager(this, {
             onPickupCollected: (pickup) => this.onPickupCollected(pickup)
         });
-        this.spawner = new Spawner(this, this.train, this.pickupManager, this.combatSystem);
+        this.endlessMode = new EndlessMode({
+            config: {
+                ...ENDLESS,
+                enabled: SETTINGS.endlessMode
+            },
+            onMilestone: (wave, message) => {
+                createMilestoneCelebration(this, wave, message);
+            },
+            onNewRecord: (wave) => {
+                createNewRecordEffect(this, wave);
+            }
+        });
+        this.spawner = new Spawner(
+            this,
+            this.train,
+            this.pickupManager,
+            this.combatSystem,
+            this.endlessMode
+        );
         this.mergeManager = new MergeManager(this, this.train, {
-            onMergeCompleted: () => this.onMergeCompleted()
+            onMergeCompleted: (...args) => this.onMergeCompleted(...args)
+        });
+        this.reorderManager = new ReorderManager(this.train, {
+            canReorder: () => !this.mergeManager.isBusy()
         });
         this.hud = new Hud(this, this.train, this.combatSystem);
+        this.vfxSystem = new VfxSystem(this);
         this.debugGraphics = this.add.graphics();
         this.debugGraphics.setDepth(200);
         this.isMobileTarget = this.sys.game.device.input.touch
@@ -106,6 +158,24 @@ export class GameScene extends Phaser.Scene {
             this.mobileControls = null;
         }
 
+        this.pauseOverlay = addPauseOverlay(this);
+        this.dropProtection = new DropProtection(this, {
+            onDropDenied: (reason) => this.handleDropDenied(reason),
+            onLastCarWarning: () => this.handleLastCarWarning(),
+            onCooldownActive: (remaining, total) => {
+                this.dropCooldownRemaining = remaining;
+                this.dropCooldownTotal = total;
+            },
+            config: DROP_PROTECTION
+        });
+        this.dropCooldownRemaining = 0;
+        this.dropCooldownTotal = 0;
+        this.dropCooldownGraphics = this.add.graphics().setScrollFactor(0).setDepth(150);
+        this.dropHoldGraphics = this.add.graphics().setScrollFactor(0).setDepth(151);
+        this.awaitingDropHold = false;
+        this.lastDropWarningAt = 0;
+        this.lastDropDeniedAt = 0;
+
         this.overdriveState = {
             charge: 0,
             ready: false
@@ -117,12 +187,28 @@ export class GameScene extends Phaser.Scene {
         this.setupCamera();
         this.applyUiScale();
 
+        this.input.once('pointerdown', () => this.audio.unlock());
+        if (this.input.keyboard) {
+            this.input.keyboard.once('keydown', () => this.audio.unlock());
+        }
+
         this.events.on('shutdown', this.cleanup, this);
     }
 
     cleanup() {
         this.inputController.destroy();
         this.hud.destroy();
+        this.vfxSystem.destroy();
+        this.audio.destroy();
+        if (this.pauseOverlay) {
+            this.pauseOverlay.destroy();
+        }
+        if (this.dropCooldownGraphics) {
+            this.dropCooldownGraphics.destroy();
+        }
+        if (this.dropHoldGraphics) {
+            this.dropHoldGraphics.destroy();
+        }
         if (this.devConsole) {
             this.devConsole.destroy();
         }
@@ -133,6 +219,10 @@ export class GameScene extends Phaser.Scene {
 
     update(time, delta) {
         if (this.isGameOver) {
+            return;
+        }
+        if (this.pauseOverlay && this.pauseOverlay.isPaused()) {
+            this.audio.updateEngine(0, false);
             return;
         }
 
@@ -147,13 +237,24 @@ export class GameScene extends Phaser.Scene {
             boostRequested: this.inputController.consumeBoostRequest()
         };
 
+        const previousBoost = this.train.boostRemaining;
         this.train.update(deltaSeconds, inputState);
+        if (this.train.boostRemaining > previousBoost) {
+            this.audio.playBoost();
+        }
+        this.audio.updateEngine(
+            this.train.currentSpeed / TRAIN.engineSpeed,
+            this.train.boostRemaining > 0
+        );
         this.handleTacticalInputs();
         this.pickupManager.update(deltaSeconds, this.train.engine);
         this.mergeManager.update(deltaSeconds);
         this.combatSystem.update(deltaSeconds);
         this.spawner.update(deltaSeconds);
         this.updateOverdrive(deltaSeconds);
+        this.updateDropProtectionUi();
+        this.vfxSystem.update(deltaSeconds);
+        this.vfxSystem.updateEngineSmoke(this.train.engine, deltaSeconds);
 
         this.updateCamera(deltaSeconds);
         this.applyUiScale();
@@ -233,10 +334,14 @@ export class GameScene extends Phaser.Scene {
 
     applyUiScale() {
         const camera = this.cameras.main;
-        const uiScale = camera.zoom > 0 ? 1 / camera.zoom : 1;
+        const baseScale = camera.zoom > 0 ? 1 / camera.zoom : 1;
+        const uiScale = baseScale * getUiScale();
         this.hud.setUiScale(uiScale);
         if (this.devConsole) {
             this.devConsole.setUiScale(uiScale);
+        }
+        if (this.mobileControls) {
+            this.mobileControls.setUiScale(uiScale);
         }
     }
 
@@ -255,8 +360,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     createInitialCar() {
-        const colorKey = pickRandom(COLOR_KEYS);
-        this.train.addCar(colorKey, 1);
+        const bonusCars = Math.max(0, Math.floor(this.achievementBonuses.starting_car || 0));
+        const totalCars = Math.min(TRAIN.maxCars, 1 + bonusCars);
+        for (let i = 0; i < totalCars; i += 1) {
+            const colorKey = pickRandom(COLOR_KEYS);
+            this.train.addCar(colorKey, 1);
+        }
     }
 
     onPickupCollected(pickup) {
@@ -265,36 +374,124 @@ export class GameScene extends Phaser.Scene {
 
     onCarDestroyed(car, reason) {
         if (reason === 'damage') {
+            const explosionDamage = EFFECTS.carExplosionDamage * this.bonusMultipliers.damage;
             this.combatSystem.applyExplosionDamage(
                 { x: car.x, y: car.y },
                 EFFECTS.carExplosionRadius,
-                EFFECTS.carExplosionDamage
+                explosionDamage
             );
-            this.spawnExplosionEffect(car.x, car.y);
+            this.vfxSystem.spawnExplosion({ x: car.x, y: car.y });
             this.applyScreenShake(120, CAMERA.shakeMedium);
+            this.audio.playExplosion();
         }
     }
 
-    onMergeCompleted() {
+    onMergeCompleted(colorKey, colorHex, position) {
         this.hud.triggerMergeFlash();
         this.applyScreenShake(120, CAMERA.shakeHeavy);
+        if (position) {
+            this.vfxSystem.spawnMergeBurst(position, colorHex);
+        }
+        this.audio.playMerge();
     }
 
     onTrainHit() {
         this.applyScreenShake(80, CAMERA.shakeLight);
+        this.audio.playHit();
     }
 
-    onEnemyDestroyed() {
-        // Reserved for future enemy death effects.
+    onEnemyDestroyed(enemy) {
+        if (enemy) {
+            this.vfxSystem.spawnEnemyPop({ x: enemy.x, y: enemy.y }, enemy.trim || PALETTE.uiText);
+        }
     }
 
     handleTacticalInputs() {
-        if (this.inputController.consumeDropRequest()) {
-            this.train.jettisonTail();
+        const dropRequested = this.inputController.consumeDropRequest();
+        const isHoldingDrop = this.inputController.isDropHeld();
+        if (dropRequested || (this.awaitingDropHold && isHoldingDrop)) {
+            this.tryDropTail(isHoldingDrop);
+        } else if (!isHoldingDrop) {
+            this.awaitingDropHold = false;
+        }
+
+        if (this.inputController.consumeReorderRequest()) {
+            const reordered = this.reorderManager.requestReorder();
+            if (reordered) {
+                this.audio.playReorder();
+            }
         }
 
         if (this.inputController.consumePulseRequest()) {
             this.tryActivateOverdrive();
+        }
+    }
+
+    tryDropTail(isHoldingDrop) {
+        const carCount = this.train.getWeaponCars().length;
+        if (carCount === 0) {
+            this.awaitingDropHold = false;
+            return;
+        }
+
+        const canDrop = this.dropProtection
+            ? this.dropProtection.canDrop(carCount, isHoldingDrop)
+            : true;
+
+        if (!canDrop) {
+            this.awaitingDropHold = isHoldingDrop;
+            return;
+        }
+
+        const dropped = this.train.jettisonTail();
+        if (dropped && this.dropProtection) {
+            this.dropProtection.recordDrop();
+        }
+        this.awaitingDropHold = false;
+    }
+
+    handleDropDenied(reason) {
+        const now = this.time.now || 0;
+        if (now - this.lastDropDeniedAt < 200) {
+            return;
+        }
+        this.lastDropDeniedAt = now;
+        createDeniedFlash(this, reason);
+    }
+
+    handleLastCarWarning() {
+        const now = this.time.now || 0;
+        if (now - this.lastDropWarningAt < 900) {
+            return;
+        }
+        this.lastDropWarningAt = now;
+        createLastCarWarning(this);
+    }
+
+    updateDropProtectionUi() {
+        if (!this.dropProtection) {
+            return;
+        }
+
+        const state = this.dropProtection.getState();
+        drawCooldownBar(
+            this,
+            state.cooldownRemaining,
+            state.currentCooldown,
+            this.dropCooldownGraphics
+        );
+
+        if (state.holdProgress > 0) {
+            const { width, height } = this.scale;
+            drawHoldProgress(
+                this,
+                state.holdProgress,
+                width * 0.5,
+                height * 0.82,
+                this.dropHoldGraphics
+            );
+        } else {
+            this.dropHoldGraphics.clear();
         }
     }
 
@@ -305,7 +502,7 @@ export class GameScene extends Phaser.Scene {
 
         this.overdriveState.charge = Math.min(
             OVERDRIVE.chargeSeconds,
-            this.overdriveState.charge + deltaSeconds
+            this.overdriveState.charge + deltaSeconds * this.overdriveChargeRate
         );
         this.overdriveState.ready = this.overdriveState.charge >= OVERDRIVE.chargeSeconds;
     }
@@ -315,9 +512,15 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
-        this.combatSystem.applyPulseDamage(OVERDRIVE.pulseDamage);
+        const pulseDamage = OVERDRIVE.pulseDamage * this.bonusMultipliers.damage;
+        this.combatSystem.applyPulseDamage(pulseDamage);
         this.spawnPulseFlash();
+        this.vfxSystem.spawnPulseRing({
+            x: this.scale.width * 0.5,
+            y: this.scale.height * 0.5
+        });
         this.applyScreenShake(160, CAMERA.shakeHeavy);
+        this.audio.playPulse();
 
         this.overdriveState.charge = 0;
         this.overdriveState.ready = false;
@@ -371,25 +574,6 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    spawnExplosionEffect(x, y) {
-        const flash = this.add.circle(
-            x,
-            y,
-            10,
-            Phaser.Display.Color.HexStringToColor(PALETTE.warning).color,
-            0.8
-        );
-        flash.setDepth(25);
-
-        this.tweens.add({
-            targets: flash,
-            scale: 2.5,
-            alpha: 0,
-            duration: 250,
-            onComplete: () => flash.destroy()
-        });
-    }
-
     applyScreenShake(durationMs, intensity) {
         if (!SETTINGS.screenShake) {
             return;
@@ -405,20 +589,40 @@ export class GameScene extends Phaser.Scene {
         this.ground.setAlpha(SETTINGS.showGrid ? 0.45 : 0);
     }
 
+    buildBonusMultipliers(bonuses) {
+        const safeBonus = bonuses || {};
+        const toMultiplier = (value) => 1 + Math.max(0, value || 0) / 100;
+
+        return {
+            damage: toMultiplier(safeBonus.damage_bonus),
+            fireRate: toMultiplier(safeBonus.fire_rate_bonus),
+            range: toMultiplier(safeBonus.range_bonus),
+            speed: toMultiplier(safeBonus.speed_bonus),
+            hp: toMultiplier(safeBonus.hp_bonus),
+            charge: toMultiplier(safeBonus.charge_bonus)
+        };
+    }
+
     endRun(result) {
         if (this.isGameOver) {
             return;
         }
 
         this.isGameOver = true;
+        const waveStatus = this.spawner.getWaveStatus();
+        if (result === 'defeat' && this.endlessMode && this.endlessMode.isEnabled()) {
+            this.endlessMode.recordDeath(waveStatus.number);
+        }
         const stats = {
             timeSurvived: this.hud.formatTime(this.runTimeSeconds),
-            wavesCleared: this.spawner.getWaveStatus().number,
+            wavesCleared: waveStatus.number,
             carsCollected: this.train.stats.carsCollected,
             carsLost: this.train.stats.carsLost,
             mergesCompleted: this.train.stats.mergesCompleted,
             enemiesDestroyed: this.combatSystem.stats.enemiesDestroyed,
-            highestTier: this.train.stats.highestTier
+            pulseHits: this.combatSystem.stats.pulseHits,
+            highestTier: this.train.stats.highestTier,
+            finalCarCount: this.train.getWeaponCars().length
         };
 
         this.scene.start('EndScene', { result, stats });

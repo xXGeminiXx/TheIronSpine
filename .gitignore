@@ -19,6 +19,7 @@ desktop.ini
 # Python (for local dev server)
 __pycache__/
 *.pyc
+document_mapper.py
 
 # Screenshots (debugging artifacts)
 *.jpg
