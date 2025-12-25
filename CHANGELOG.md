@@ -40,7 +40,38 @@ When updating this game, follow these conventions:
 ## [Unreleased]
 
 ### Added
-- (nothing yet)
+- **Purple Sniper Car**: Long-range precision weapon with extended range (450-550 vs 240-380)
+  - Penetration mechanic: Projectiles pierce through 1-3 enemies based on tier
+  - Unique needle-shaped projectile with energy shimmer effect
+  - Slower fire rate (1.5-2.2 shots/sec) emphasizes precision over volume
+  - Weighted spawn: 3x more common in early game (waves 1-5), reduced late game
+- **Orange Artillery Car**: Area damage specialist with splash damage mechanics
+  - Slowest fire rate (0.6-1.0 shots/sec) but hits multiple enemies per shot
+  - Splash damage: 50-80 unit radius dealing 12-25 damage to nearby enemies
+  - Large mortar shell projectile with fire corona and pulsing animation
+  - Weighted spawn: 2x more common in mid game (waves 6-12) when enemies cluster
+  - New `applySplashDamage()` system in combat.js
+
+### Changed
+- **All weapon ranges extended and varied**:
+  - Red (Machinegun): 240-280 (was 200, +40-80 range)
+  - Blue (Cryo): 280-320 (was 250, +30-70 range)
+  - Yellow (Cannon): 340-380 (was 300, +40-80 range)
+  - Purple (Sniper): 450-550 (new)
+  - Orange (Artillery): 300-360 (new)
+- **Weighted color spawning system**: Spawn rates now change based on wave progression
+  - Early game favors purple snipers to help with range
+  - Mid game favors orange artillery for crowd control
+  - Late game reduces purple, balances others
+- Projectile visual system updated with purple needle and orange mortar visuals
+- Color impact effects updated (purple: tight spread, orange: massive explosion)
+
+### Developer Notes
+- New `weightedRandom()` helper function in spawner.js for dynamic spawn rates
+- Splash damage excludes direct hit target (no double-dipping)
+- Splash damage ignores armor for balance (slow fire rate compensation)
+- Purple penetration uses existing penetration counter system
+- Orange fire pulse animation uses corona scaling and flame flickering
 
 ---
 
