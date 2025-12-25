@@ -249,7 +249,7 @@ export class CombatSystem {
 
             const fireInterval = 1 / weaponStats.fireRate;
             car.weaponCooldown = fireInterval;
-            this.spawnProjectile(car, target, weaponStats, 'car', car.tier);
+            this.spawnProjectile(car, target, weaponStats, 'car', car.tier, car);
         }
     }
 
@@ -288,7 +288,8 @@ export class CombatSystem {
             target,
             engineWeapon,
             'engine',
-            engineWeapon.tier
+            engineWeapon.tier,
+            engine
         );
     }
 
@@ -390,7 +391,7 @@ export class CombatSystem {
         return sprite;
     }
 
-    spawnProjectile(car, target, weaponStats, source = 'car', tier = null) {
+    spawnProjectile(car, target, weaponStats, source = 'car', tier = null, sourceSegment = null) {
         const angle = angleTo(car.x, car.y, target.x, target.y);
         const velocity = normalizeVector(Math.cos(angle), Math.sin(angle));
         const speed = weaponStats.projectileSpeed;
@@ -433,7 +434,12 @@ export class CombatSystem {
         this.projectiles.push(projectile);
         this.spawnMuzzleFlash(car, angle);
         if (this.eventHandlers.onWeaponFired) {
-            this.eventHandlers.onWeaponFired(car.colorKey, source, tier);
+            this.eventHandlers.onWeaponFired(
+                car.colorKey,
+                source,
+                tier,
+                sourceSegment || car
+            );
         }
         return projectile;
     }

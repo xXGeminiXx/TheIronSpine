@@ -1,6 +1,26 @@
 import { COLOR_KEYS, SPAWN, WAVES } from '../config.js';
 import { pickRandom, randomBetween, randomInt, normalizeVector } from '../core/math.js';
 
+/**
+ * Picks a random element from array based on weights.
+ * @param {Array} array - Elements to choose from
+ * @param {Array<number>} weights - Weight for each element (higher = more likely)
+ * @returns {*} Randomly selected element
+ */
+function weightedRandom(array, weights) {
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let random = Math.random() * totalWeight;
+
+    for (let i = 0; i < array.length; i++) {
+        random -= weights[i];
+        if (random <= 0) {
+            return array[i];
+        }
+    }
+
+    return array[array.length - 1];
+}
+
 export class Spawner {
     constructor(scene, train, pickupManager, combatSystem, endlessMode = null) {
         this.scene = scene;
@@ -24,6 +44,22 @@ export class Spawner {
     update(deltaSeconds) {
         this.updatePickupSpawns(deltaSeconds);
         this.updateEnemySpawns(deltaSeconds);
+    }
+
+    /**
+     * Returns color spawn weights based on current wave number.
+     * Early game favors purple snipers, late game reduces them.
+     * @returns {Array<number>} Weights for [red, blue, yellow, purple]
+     */
+    getColorWeights() {
+        const wave = this.waveNumber;
+        if (wave <= 5) {
+            return SPAWN.colorWeightsEarly;
+        } else if (wave <= 12) {
+            return SPAWN.colorWeightsMid;
+        } else {
+            return SPAWN.colorWeightsLate;
+        }
     }
 
     updatePickupSpawns(deltaSeconds) {
@@ -122,7 +158,7 @@ export class Spawner {
             y: driftDirection.y * SPAWN.pickupDriftSpeed
         };
 
-        const colorKey = pickRandom(COLOR_KEYS);
+        const colorKey = weightedRandom(COLOR_KEYS, this.getColorWeights());
         this.pickupManager.spawnPickup(spawnPoint, colorKey, velocity);
     }
 
@@ -158,16 +194,17 @@ export class Spawner {
 
     buildCaravanColors(count) {
         const colors = [];
+        const weights = this.getColorWeights();
         if (count >= 2) {
-            const pairColor = pickRandom(COLOR_KEYS);
+            const pairColor = weightedRandom(COLOR_KEYS, weights);
             colors.push(pairColor, pairColor);
             for (let i = 2; i < count; i += 1) {
-                colors.push(pickRandom(COLOR_KEYS));
+                colors.push(weightedRandom(COLOR_KEYS, weights));
             }
             return colors;
         }
 
-        colors.push(pickRandom(COLOR_KEYS));
+        colors.push(weightedRandom(COLOR_KEYS, weights));
         return colors;
     }
 

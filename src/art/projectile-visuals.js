@@ -9,6 +9,7 @@
  *   Red (Machinegun):  Thin dart/tracer - rapid, light, aggressive
  *   Blue (Cryo):       Pulsing orb - slow, cold, controlling
  *   Yellow (Cannon):   Heavy bolt - powerful, armor-piercing, impactful
+ *   Purple (Sniper):   Sleek needle - long-range, precise, penetrating
  *
  * TRAIL SYSTEM:
  *   Each projectile can have an optional trail effect that:
@@ -60,6 +61,11 @@ const TRAIL_CONFIG = Object.freeze({
         width: 4,
         enabled: true,
         sparks: true       // Yellow leaves spark particles
+    },
+    purple: {
+        width: 2.5,
+        enabled: true,
+        shimmer: true      // Purple projectiles shimmer with energy
     }
 });
 
@@ -256,6 +262,77 @@ export function createYellowProjectile(scene, x, y, angle) {
     return { sprite: container, trailData };
 }
 
+/**
+ * Creates a purple sniper projectile - sleek precision needle.
+ *
+ * Visual: Thin elongated needle with energy shimmer.
+ * Trail: Precise energy trail.
+ * Special: Feels precise and penetrating, emphasizing long range.
+ *
+ * @param {Phaser.Scene} scene - The game scene
+ * @param {number} x - Initial X position
+ * @param {number} y - Initial Y position
+ * @param {number} angle - Direction of travel in radians
+ * @returns {object} { sprite, trailData }
+ */
+export function createPurpleProjectile(scene, x, y, angle) {
+    const color = COLORS.purple.phaser;
+    const baseRadius = PROJECTILES.purple ? PROJECTILES.purple.radius : 4;
+
+    const container = scene.add.container(x, y);
+
+    // Main needle body - very elongated, thin shape
+    const needleLength = baseRadius * 4;
+    const needleWidth = baseRadius * 0.8;
+    const needle = scene.add.triangle(
+        0, 0,
+        needleLength, 0,              // Sharp tip (front)
+        -needleLength * 0.2, -needleWidth,   // Back left
+        -needleLength * 0.2, needleWidth     // Back right
+        , color
+    );
+    needle.setOrigin(0.5, 0.5);
+
+    // Energy shimmer ring around the projectile
+    const shimmerRing = scene.add.ellipse(
+        0, 0,
+        needleLength * 1.3,
+        needleWidth * 2.5,
+        0xcc88ff,
+        0.3
+    );
+
+    // Bright energy core
+    const core = scene.add.circle(0, 0, baseRadius * 0.5, 0xffccff, 0.95);
+
+    // Energy field at tip (gives penetrating feel)
+    const tipGlow = scene.add.circle(
+        needleLength * 0.7,
+        0,
+        baseRadius * 0.7,
+        0xffffff,
+        0.6
+    );
+
+    container.add([shimmerRing, needle, core, tipGlow]);
+    container.setRotation(angle);
+
+    // Store references for shimmer animation
+    container.setData('shimmerRing', shimmerRing);
+    container.setData('shimmerPhase', Math.random() * Math.PI * 2);
+
+    const trailData = {
+        enabled: TRAIL_CONFIG.purple.enabled,
+        history: [],
+        distanceSinceLastSample: 0,
+        graphics: scene.add.graphics(),
+        config: TRAIL_CONFIG.purple
+    };
+    trailData.graphics.setDepth(container.depth - 1);
+
+    return { sprite: container, trailData };
+}
+
 // ============================================================================
 // MAIN FACTORY FUNCTION
 // ============================================================================
@@ -264,7 +341,7 @@ export function createYellowProjectile(scene, x, y, angle) {
  * Creates a projectile sprite based on color type.
  *
  * @param {Phaser.Scene} scene - The game scene
- * @param {string} colorKey - 'red', 'blue', or 'yellow'
+ * @param {string} colorKey - 'red', 'blue', 'yellow', or 'purple'
  * @param {number} x - Initial X position
  * @param {number} y - Initial Y position
  * @param {number} angle - Direction of travel in radians
@@ -278,6 +355,8 @@ export function createProjectileSprite(scene, colorKey, x, y, angle) {
             return createBlueProjectile(scene, x, y, angle);
         case 'yellow':
             return createYellowProjectile(scene, x, y, angle);
+        case 'purple':
+            return createPurpleProjectile(scene, x, y, angle);
         default:
             // Fallback: simple circle for unknown colors
             const color = COLORS[colorKey] ? COLORS[colorKey].phaser : 0xffffff;
@@ -336,6 +415,11 @@ export function updateProjectileVisuals(projectile, deltaSeconds) {
     // Handle blue pulsing
     if (projectile.colorKey === 'blue' && config.pulse) {
         updateBluePulse(projectile.sprite, deltaSeconds);
+    }
+
+    // Handle purple shimmer
+    if (projectile.colorKey === 'purple' && config.shimmer) {
+        updatePurpleShimmer(projectile.sprite, deltaSeconds);
     }
 }
 
@@ -401,6 +485,25 @@ function updateBluePulse(sprite, deltaSeconds) {
     }
 }
 
+/**
+ * Updates the shimmer animation for purple projectiles.
+ *
+ * @param {Phaser.GameObjects.Container} sprite - The projectile container
+ * @param {number} deltaSeconds - Time since last frame
+ */
+function updatePurpleShimmer(sprite, deltaSeconds) {
+    let phase = sprite.getData('shimmerPhase') || 0;
+    phase += deltaSeconds * 6 * Math.PI * 2; // Shimmer speed
+    sprite.setData('shimmerPhase', phase);
+
+    // Apply shimmer to energy ring opacity
+    const shimmerRing = sprite.getData('shimmerRing');
+    if (shimmerRing) {
+        const shimmerAlpha = 0.2 + Math.sin(phase) * 0.15;
+        shimmerRing.setAlpha(shimmerAlpha);
+    }
+}
+
 // ============================================================================
 // CLEANUP
 // ============================================================================
@@ -427,7 +530,7 @@ export function destroyTrailGraphics(trailData) {
  * Returns impact effect configuration for a color.
  * VfxSystem uses this to spawn appropriate particles.
  *
- * @param {string} colorKey - 'red', 'blue', or 'yellow'
+ * @param {string} colorKey - 'red', 'blue', 'yellow', or 'purple'
  * @returns {object} Impact effect configuration
  */
 export function getImpactConfig(colorKey) {
@@ -465,6 +568,18 @@ export function getImpactConfig(colorKey) {
                 color: 0xffcc44,
                 // Special: camera shake on hit
                 cameraShake: true
+            };
+        case 'purple':
+            return {
+                type: 'pierce',
+                count: 4,
+                speed: 100,
+                life: 0.3,
+                radius: 2,
+                spread: 0.4,
+                color: 0xcc88ff,
+                // Special: tight spread for precision feel
+                tightSpread: true
             };
         default:
             return {

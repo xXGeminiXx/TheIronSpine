@@ -36,6 +36,7 @@ export class SettingsScene extends Phaser.Scene {
             { key: 'endlessMode', label: 'Endless Mode', desc: 'Infinite waves (no win)' },
             { key: 'screenShake', label: 'Screen Shake', desc: 'Camera effects on hits' },
             { key: 'showGrid', label: 'Grid Background', desc: 'Show ground pattern' },
+            { key: 'showRangeArcs', label: 'Range Arcs', desc: 'Show car weapon ranges' },
             { key: 'invincible', label: 'Easy Mode', desc: 'Train cannot take damage' },
             { key: 'debugOverlay', label: 'Debug Stats', desc: 'Show FPS and counts' }
         ];

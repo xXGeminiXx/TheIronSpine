@@ -177,22 +177,28 @@ export const COLORS = Object.freeze({
         name: 'Yellow',
         hex: '#ffcc00',
         phaser: 0xffcc00
+    },
+    purple: {
+        key: 'purple',
+        name: 'Purple',
+        hex: '#aa44ff',
+        phaser: 0xaa44ff
     }
 });
 
-export const COLOR_KEYS = Object.freeze(['red', 'blue', 'yellow']);
+export const COLOR_KEYS = Object.freeze(['red', 'blue', 'yellow', 'purple']);
 
 export const WEAPON_STATS = Object.freeze({
     red: [
-        { fireRate: 8, damage: 5, range: 200, projectileSpeed: 600 },
-        { fireRate: 10, damage: 7, range: 200, projectileSpeed: 600 },
-        { fireRate: 12, damage: 10, range: 200, projectileSpeed: 600 }
+        { fireRate: 8, damage: 5, range: 240, projectileSpeed: 600 },
+        { fireRate: 10, damage: 7, range: 260, projectileSpeed: 600 },
+        { fireRate: 12, damage: 10, range: 280, projectileSpeed: 600 }
     ],
     blue: [
         {
             fireRate: 2,
             damage: 8,
-            range: 250,
+            range: 280,
             projectileSpeed: 400,
             slowPercent: 0.4,
             slowDuration: 1.5
@@ -200,7 +206,7 @@ export const WEAPON_STATS = Object.freeze({
         {
             fireRate: 2.5,
             damage: 12,
-            range: 250,
+            range: 300,
             projectileSpeed: 420,
             slowPercent: 0.5,
             slowDuration: 2.0
@@ -208,7 +214,7 @@ export const WEAPON_STATS = Object.freeze({
         {
             fireRate: 3,
             damage: 18,
-            range: 250,
+            range: 320,
             projectileSpeed: 440,
             slowPercent: 0.6,
             slowDuration: 2.5
@@ -218,23 +224,46 @@ export const WEAPON_STATS = Object.freeze({
         {
             fireRate: 0.8,
             damage: 35,
-            range: 300,
+            range: 340,
             projectileSpeed: 800,
             armorPierce: 0.5
         },
         {
             fireRate: 1.0,
             damage: 50,
-            range: 300,
+            range: 360,
             projectileSpeed: 840,
             armorPierce: 0.65
         },
         {
             fireRate: 1.2,
             damage: 70,
-            range: 300,
+            range: 380,
             projectileSpeed: 880,
             armorPierce: 0.8
+        }
+    ],
+    purple: [
+        {
+            fireRate: 1.5,
+            damage: 15,
+            range: 450,
+            projectileSpeed: 900,
+            penetration: 1
+        },
+        {
+            fireRate: 1.8,
+            damage: 22,
+            range: 500,
+            projectileSpeed: 950,
+            penetration: 2
+        },
+        {
+            fireRate: 2.2,
+            damage: 32,
+            range: 550,
+            projectileSpeed: 1000,
+            penetration: 3
         }
     ]
 });
@@ -246,19 +275,24 @@ export const ENGINE_WEAPON = Object.freeze({
     forwardDot: 0.2,
     stats: {
         red: [
-            { fireRate: 2.6, damage: 3, range: 160, projectileSpeed: 500 },
-            { fireRate: 3.4, damage: 4, range: 175, projectileSpeed: 520 },
-            { fireRate: 4.2, damage: 5, range: 190, projectileSpeed: 540 }
+            { fireRate: 2.6, damage: 3, range: 180, projectileSpeed: 500 },
+            { fireRate: 3.4, damage: 4, range: 200, projectileSpeed: 520 },
+            { fireRate: 4.2, damage: 5, range: 220, projectileSpeed: 540 }
         ],
         blue: [
-            { fireRate: 1.2, damage: 4, range: 180, projectileSpeed: 450, slowPercent: 0.25, slowDuration: 1.2 },
-            { fireRate: 1.6, damage: 5, range: 195, projectileSpeed: 470, slowPercent: 0.35, slowDuration: 1.6 },
-            { fireRate: 2.0, damage: 6, range: 210, projectileSpeed: 490, slowPercent: 0.45, slowDuration: 2.0 }
+            { fireRate: 1.2, damage: 4, range: 200, projectileSpeed: 450, slowPercent: 0.25, slowDuration: 1.2 },
+            { fireRate: 1.6, damage: 5, range: 220, projectileSpeed: 470, slowPercent: 0.35, slowDuration: 1.6 },
+            { fireRate: 2.0, damage: 6, range: 240, projectileSpeed: 490, slowPercent: 0.45, slowDuration: 2.0 }
         ],
         yellow: [
-            { fireRate: 0.5, damage: 16, range: 200, projectileSpeed: 650, armorPierce: 0.35 },
-            { fireRate: 0.7, damage: 22, range: 220, projectileSpeed: 700, armorPierce: 0.45 },
-            { fireRate: 0.9, damage: 28, range: 240, projectileSpeed: 760, armorPierce: 0.55 }
+            { fireRate: 0.5, damage: 16, range: 240, projectileSpeed: 650, armorPierce: 0.35 },
+            { fireRate: 0.7, damage: 22, range: 260, projectileSpeed: 700, armorPierce: 0.45 },
+            { fireRate: 0.9, damage: 28, range: 280, projectileSpeed: 760, armorPierce: 0.55 }
+        ],
+        purple: [
+            { fireRate: 1.0, damage: 8, range: 300, projectileSpeed: 800, penetration: 1 },
+            { fireRate: 1.3, damage: 12, range: 340, projectileSpeed: 850, penetration: 1 },
+            { fireRate: 1.6, damage: 16, range: 380, projectileSpeed: 900, penetration: 2 }
         ]
     }
 });
@@ -266,7 +300,8 @@ export const ENGINE_WEAPON = Object.freeze({
 export const PROJECTILES = Object.freeze({
     red: { radius: 3 },
     blue: { radius: 5 },
-    yellow: { radius: 7 }
+    yellow: { radius: 7 },
+    purple: { radius: 4 }
 });
 
 export const ENEMIES = Object.freeze({
@@ -344,6 +379,13 @@ export const SPAWN = Object.freeze({
     pickupCaravanChance: 0.35,
     pickupCaravanMinCount: 3,
     pickupCaravanMaxCount: 5,
+    // Color spawn weights: [red, blue, yellow, purple]
+    // Early game (waves 1-5): Purple sniper favored
+    colorWeightsEarly: [1, 1, 1, 3],
+    // Mid game (waves 6-12): Balanced
+    colorWeightsMid: [1, 1, 1, 1],
+    // Late game (waves 13+): Purple less common
+    colorWeightsLate: [1.5, 1.5, 1.5, 0.5],
     pickupCaravanSpacing: 38,
     spawnPadding: 60,
     pickupPaddingPerCar: 1.5,

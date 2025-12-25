@@ -8,6 +8,7 @@ export const SETTINGS = {
     invincible: DEBUG.invincible,
     screenShake: true,
     showGrid: true,
+    showRangeArcs: false,
     uiScaleIndex: 1,
     endlessMode: ENDLESS.enabled
 };

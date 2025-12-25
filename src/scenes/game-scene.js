@@ -26,6 +26,7 @@
 
 import {
     CAMERA,
+    COLORS,
     COLOR_KEYS,
     DROP_PROTECTION,
     ENDLESS,
@@ -102,7 +103,12 @@ export class GameScene extends Phaser.Scene {
         this.combatSystem = new CombatSystem(this, this.train, {
             onTrainHit: (segment, result, source) => this.onTrainHit(segment, result, source),
             onEnemyDestroyed: (enemy) => this.onEnemyDestroyed(enemy),
-            onWeaponFired: (colorKey) => this.audio.playWeapon(colorKey),
+            onWeaponFired: (colorKey, source, tier, segment) => {
+                this.audio.playWeapon(colorKey);
+                if (segment) {
+                    this.train.recordWeaponFire(segment);
+                }
+            },
             onEnemyWeaponFired: () => this.audio.playEnemyShot()
         });
         this.combatSystem.setBonusMultipliers(this.bonusMultipliers);
@@ -138,6 +144,8 @@ export class GameScene extends Phaser.Scene {
         this.vfxSystem = new VfxSystem(this);
         this.debugGraphics = this.add.graphics();
         this.debugGraphics.setDepth(200);
+        this.rangeArcGraphics = this.add.graphics();
+        this.rangeArcGraphics.setDepth(9);
         this.isMobileTarget = this.sys.game.device.input.touch
             && !this.sys.game.device.os.desktop;
 
@@ -216,6 +224,9 @@ export class GameScene extends Phaser.Scene {
         if (this.dropHoldGraphics) {
             this.dropHoldGraphics.destroy();
         }
+        if (this.rangeArcGraphics) {
+            this.rangeArcGraphics.destroy();
+        }
         if (this.devConsole) {
             this.devConsole.destroy();
         }
@@ -261,7 +272,11 @@ export class GameScene extends Phaser.Scene {
         this.updateOverdrive(deltaSeconds);
         this.updateDropProtectionUi();
         this.vfxSystem.update(deltaSeconds);
-        this.vfxSystem.updateEngineSmoke(this.train.engine, deltaSeconds);
+        this.vfxSystem.updateEngineSmoke(
+            this.train.engine,
+            deltaSeconds,
+            this.train.getHeatIntensity()
+        );
 
         this.updateCamera(deltaSeconds);
         this.worldManager.update(deltaSeconds, this.cameras.main);
@@ -280,6 +295,7 @@ export class GameScene extends Phaser.Scene {
             this.overdriveState,
             engineWeaponState
         );
+        this.updateRangeArcs();
         this.drawDebugHitboxes();
     }
 
@@ -598,6 +614,26 @@ export class GameScene extends Phaser.Scene {
         }
         this.lastGridSetting = SETTINGS.showGrid;
         this.ground.setAlpha(SETTINGS.showGrid ? 0.45 : 0);
+    }
+
+    updateRangeArcs() {
+        if (!this.rangeArcGraphics) {
+            return;
+        }
+
+        if (!SETTINGS.showRangeArcs) {
+            this.rangeArcGraphics.clear();
+            return;
+        }
+
+        this.rangeArcGraphics.clear();
+        const cars = this.train.getWeaponCars();
+        for (const car of cars) {
+            const stats = this.combatSystem.getWeaponStatsForTier(car.colorKey, car.tier);
+            const color = COLORS[car.colorKey].phaser;
+            this.rangeArcGraphics.lineStyle(1, color, 0.18);
+            this.rangeArcGraphics.strokeCircle(car.x, car.y, stats.range);
+        }
     }
 
     buildBonusMultipliers(bonuses) {
