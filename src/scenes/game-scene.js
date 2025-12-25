@@ -406,7 +406,7 @@ export class GameScene extends Phaser.Scene {
     onTrainHit(segment, result, source) {
         this.applyScreenShake(80, CAMERA.shakeLight);
         this.audio.playHit();
-        if (source && this.hud) {
+        if (source && this.hud && typeof this.hud.triggerDamagePing === 'function') {
             this.hud.triggerDamagePing(source.x, source.y, source.color);
         }
     }
