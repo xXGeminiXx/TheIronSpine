@@ -39,6 +39,7 @@ export class Spawner {
         this.activeEliteType = null;
         this.victoryReady = false;
         this.waveKillStart = 0;
+        this.currentFormationLabel = null;
     }
 
     update(deltaSeconds) {
@@ -219,6 +220,114 @@ export class Spawner {
         this.combatSystem.spawnEnemy('skirmisher', spawnPoint, scale);
     }
 
+    spawnSkirmisherAt(position, scale) {
+        this.combatSystem.spawnEnemy('skirmisher', position, scale);
+    }
+
+    spawnSkirmisherFormation(count, scale) {
+        const formation = this.pickFormationType(count);
+        if (!formation) {
+            for (let i = 0; i < count; i += 1) {
+                this.spawnSkirmisher(scale);
+            }
+            return null;
+        }
+
+        const camera = this.scene.cameras.main;
+        const forward = this.getForwardVector();
+        const padding = this.getDynamicPadding(
+            SPAWN.spawnPadding + 40,
+            SPAWN.enemyPaddingPerCar
+        );
+        const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
+        const center = camera.midPoint;
+        const driftDirection = normalizeVector(
+            center.x - spawnPoint.x,
+            center.y - spawnPoint.y
+        );
+        const right = { x: -driftDirection.y, y: driftDirection.x };
+        const spacing = SPAWN.enemyFormationSpacing;
+        const offsets = this.buildFormationOffsets(formation.key, count, spacing);
+
+        offsets.forEach((offset) => {
+            const position = {
+                x: spawnPoint.x + driftDirection.x * offset.forward + right.x * offset.lateral,
+                y: spawnPoint.y + driftDirection.y * offset.forward + right.y * offset.lateral
+            };
+            this.spawnSkirmisherAt(position, scale);
+        });
+
+        return formation.label;
+    }
+
+    pickFormationType(count) {
+        const formations = [
+            { key: 'wedge', label: 'Wedge', min: 4 },
+            { key: 'column', label: 'Column', min: 3 },
+            { key: 'line', label: 'Line', min: 4 },
+            { key: 'pincer', label: 'Pincer', min: 5 }
+        ];
+        const options = formations.filter((formation) => count >= formation.min);
+        if (options.length === 0) {
+            return null;
+        }
+        return pickRandom(options);
+    }
+
+    buildFormationOffsets(type, count, spacing) {
+        if (type === 'column') {
+            return Array.from({ length: count }, (_, i) => ({
+                forward: -spacing * i,
+                lateral: 0
+            }));
+        }
+
+        if (type === 'line') {
+            const mid = (count - 1) * 0.5;
+            return Array.from({ length: count }, (_, i) => ({
+                forward: 0,
+                lateral: (i - mid) * spacing
+            }));
+        }
+
+        if (type === 'pincer') {
+            const offsets = [];
+            const leftCount = Math.ceil(count / 2);
+            const rightCount = count - leftCount;
+            for (let i = 0; i < leftCount; i += 1) {
+                offsets.push({
+                    forward: -spacing * i,
+                    lateral: -spacing * 1.1
+                });
+            }
+            for (let i = 0; i < rightCount; i += 1) {
+                offsets.push({
+                    forward: -spacing * i,
+                    lateral: spacing * 1.1
+                });
+            }
+            return offsets.slice(0, count);
+        }
+
+        const offsets = [];
+        let row = 0;
+        while (offsets.length < count) {
+            const inRow = row + 1;
+            const rowMid = (inRow - 1) * 0.5;
+            for (let col = 0; col < inRow; col += 1) {
+                offsets.push({
+                    forward: -spacing * row,
+                    lateral: (col - rowMid) * spacing
+                });
+                if (offsets.length >= count) {
+                    break;
+                }
+            }
+            row += 1;
+        }
+        return offsets;
+    }
+
     spawnRanger(scale) {
         const camera = this.scene.cameras.main;
         const forward = this.getForwardVector();
@@ -239,6 +348,28 @@ export class Spawner {
         );
         const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
         this.combatSystem.spawnEnemy('armored', spawnPoint, scale);
+    }
+
+    spawnHarpooner(scale) {
+        const camera = this.scene.cameras.main;
+        const forward = this.getForwardVector();
+        const padding = this.getDynamicPadding(
+            SPAWN.spawnPadding + 60,
+            SPAWN.enemyPaddingPerCar
+        );
+        const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
+        this.combatSystem.spawnEnemy('harpooner', spawnPoint, scale);
+    }
+
+    spawnMinelayer(scale) {
+        const camera = this.scene.cameras.main;
+        const forward = this.getForwardVector();
+        const padding = this.getDynamicPadding(
+            SPAWN.spawnPadding + 60,
+            SPAWN.enemyPaddingPerCar
+        );
+        const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
+        this.combatSystem.spawnEnemy('minelayer', spawnPoint, scale);
     }
 
     spawnElite(type) {
@@ -330,16 +461,33 @@ export class Spawner {
         const skirmisherCount = this.getSkirmisherCount(this.waveNumber);
         const rangerCount = this.getRangerCount(this.waveNumber);
         const armoredCount = this.getArmoredCount(this.waveNumber);
+        const harpoonerCount = this.getHarpoonerCount(this.waveNumber);
+        const minelayerCount = this.getMinelayerCount(this.waveNumber);
         this.waveKillStart = this.combatSystem.stats.enemiesDestroyed;
 
-        for (let i = 0; i < skirmisherCount; i += 1) {
-            this.spawnSkirmisher(scale);
+        this.currentFormationLabel = null;
+        if (skirmisherCount >= SPAWN.enemyFormationMinCount
+            && Math.random() < SPAWN.enemyFormationChance) {
+            this.currentFormationLabel = this.spawnSkirmisherFormation(
+                skirmisherCount,
+                scale
+            );
+        } else {
+            for (let i = 0; i < skirmisherCount; i += 1) {
+                this.spawnSkirmisher(scale);
+            }
         }
         for (let i = 0; i < rangerCount; i += 1) {
             this.spawnRanger(scale);
         }
         for (let i = 0; i < armoredCount; i += 1) {
             this.spawnArmored(scale);
+        }
+        for (let i = 0; i < harpoonerCount; i += 1) {
+            this.spawnHarpooner(scale);
+        }
+        for (let i = 0; i < minelayerCount; i += 1) {
+            this.spawnMinelayer(scale);
         }
 
         this.pendingEliteType = this.getEliteTypeForWave(this.waveNumber);
@@ -353,6 +501,7 @@ export class Spawner {
             this.endlessMode.completeWave(this.waveNumber, Math.max(0, waveKills));
         }
 
+        this.currentFormationLabel = null;
         if (!this.isEndless() && this.waveNumber >= WAVES.totalToWin) {
             this.wavePhase = 'complete';
             this.victoryReady = true;
@@ -439,6 +588,26 @@ export class Spawner {
         return Math.min(WAVES.armoredCountMax, count);
     }
 
+    getHarpoonerCount(waveNumber) {
+        if (waveNumber < WAVES.harpoonerStartWave) {
+            return 0;
+        }
+
+        const step = Math.floor((waveNumber - WAVES.harpoonerStartWave) / WAVES.harpoonerIncreaseEvery);
+        const count = WAVES.harpoonerCountBase + step;
+        return Math.min(WAVES.harpoonerCountMax, count);
+    }
+
+    getMinelayerCount(waveNumber) {
+        if (waveNumber < WAVES.minelayerStartWave) {
+            return 0;
+        }
+
+        const step = Math.floor((waveNumber - WAVES.minelayerStartWave) / WAVES.minelayerIncreaseEvery);
+        const count = WAVES.minelayerCountBase + step;
+        return Math.min(WAVES.minelayerCountMax, count);
+    }
+
     hasEnemyType(type) {
         if (!type) {
             return false;
@@ -451,6 +620,8 @@ export class Spawner {
             enemy.type === 'skirmisher'
             || enemy.type === 'ranger'
             || enemy.type === 'armored'
+            || enemy.type === 'harpooner'
+            || enemy.type === 'minelayer'
         ));
     }
 
@@ -501,7 +672,8 @@ export class Spawner {
             eliteType: this.activeEliteType || this.pendingEliteType,
             nextWaveIn: this.wavePhase === 'waiting' ? this.waveTimer : 0,
             formattedWave,
-            isEndless
+            isEndless,
+            formationLabel: this.currentFormationLabel
         };
     }
 

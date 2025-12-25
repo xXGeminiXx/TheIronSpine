@@ -37,6 +37,8 @@ import { debugLog, devAssert } from './debug.js';
 const ENGINE_DEPTH = 20;
 const CAR_DEPTH = 18;
 const COUPLING_DEPTH = 16;
+const SHADOW_DEPTH = 6;
+const HEADLIGHT_DEPTH = 9;
 
 let nextSegmentId = 0;
 
@@ -65,14 +67,26 @@ export class Train {
             mergesCompleted: 0,
             highestTier: 1
         };
+        this.turnPenalties = new Map();
+        this.turnPenaltyMultiplier = 1;
+        this.heatIntensity = 0;
+        this.shadowGraphics = this.scene.add.graphics();
+        this.shadowGraphics.setDepth(SHADOW_DEPTH);
+        this.headlightGraphics = this.scene.add.graphics();
+        this.headlightGraphics.setDepth(HEADLIGHT_DEPTH);
     }
 
     update(deltaSeconds, inputState) {
         this.updateInvulnerability(deltaSeconds);
         this.updateBoostTimers(deltaSeconds, inputState.boostRequested);
+        this.updateTurnPenalties(deltaSeconds);
         this.updateEngineMovement(deltaSeconds, inputState.targetX, inputState.targetY);
         this.updateCarFollow(deltaSeconds);
+        this.applyDragForces(deltaSeconds);
         this.updateCouplings();
+        this.updateHeat(deltaSeconds);
+        this.updateShadowPath();
+        this.updateHeadlight();
     }
 
     updateInvulnerability(deltaSeconds) {
@@ -94,11 +108,31 @@ export class Train {
         }
     }
 
+    updateTurnPenalties(deltaSeconds) {
+        if (this.turnPenalties.size === 0) {
+            this.turnPenaltyMultiplier = 1;
+            return;
+        }
+
+        let changed = false;
+        for (const [id, penalty] of this.turnPenalties) {
+            penalty.timer = Math.max(0, penalty.timer - deltaSeconds);
+            if (penalty.timer === 0) {
+                this.turnPenalties.delete(id);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.recalculateTurnPenalty();
+        }
+    }
+
     updateEngineMovement(deltaSeconds, targetX, targetY) {
         const engine = this.engine;
         const desiredAngle = angleTo(engine.x, engine.y, targetX, targetY);
         const turnSpeed = Phaser.Math.DegToRad(
-            TRAIN.turnSpeedDeg * this.turnSpeedMultiplier
+            TRAIN.turnSpeedDeg * this.turnSpeedMultiplier * this.turnPenaltyMultiplier
         );
         engine.rotation = Phaser.Math.Angle.RotateTo(
             engine.rotation,
@@ -160,6 +194,26 @@ export class Train {
         }
     }
 
+    applyDragForces(deltaSeconds) {
+        for (const car of this.cars) {
+            if (car.dragTimer <= 0 || !car.dragDirection) {
+                continue;
+            }
+
+            car.dragTimer = Math.max(0, car.dragTimer - deltaSeconds);
+            const strength = car.dragStrength || 0;
+            car.x += car.dragDirection.x * strength * deltaSeconds;
+            car.y += car.dragDirection.y * strength * deltaSeconds;
+            car.container.x = car.x;
+            car.container.y = car.y;
+
+            if (car.dragTimer === 0) {
+                car.dragDirection = null;
+                car.dragStrength = 0;
+            }
+        }
+    }
+
     updateCouplings() {
         const requiredCouplings = this.cars.length;
         while (this.couplings.length < requiredCouplings) {
@@ -188,10 +242,182 @@ export class Train {
         }
     }
 
+    updateHeat(deltaSeconds) {
+        let peakHeat = 0;
+        const heatDecay = TRAIN.heatDecayPerSecond * deltaSeconds;
+        const maxAlpha = TRAIN.heatGlowMaxAlpha;
+
+        const segments = [this.engine, ...this.cars];
+        for (const segment of segments) {
+            segment.heat = Math.max(0, (segment.heat || 0) - heatDecay);
+            peakHeat = Math.max(peakHeat, segment.heat);
+
+            if (segment.heatGlow) {
+                const alpha = segment.heat * maxAlpha;
+                segment.heatGlow.setAlpha(alpha);
+                const scale = 1 + segment.heat * 0.6;
+                segment.heatGlow.setScale(scale);
+            }
+        }
+
+        this.heatIntensity = peakHeat;
+    }
+
+    updateShadowPath() {
+        if (!this.shadowGraphics) {
+            return;
+        }
+
+        this.shadowGraphics.clear();
+        const segments = this.getAllSegments();
+        if (segments.length === 0) {
+            return;
+        }
+
+        const offsetY = TRAIN.shadowOffsetY;
+        const width = TRAIN.shadowWidth;
+        const alpha = TRAIN.shadowAlpha;
+        const gap = TRAIN.couplingRadius * 1.6;
+
+        this.shadowGraphics.lineStyle(width, 0x000000, alpha);
+        for (let index = 0; index < segments.length - 1; index += 1) {
+            const leader = segments[index];
+            const follower = segments[index + 1];
+            const dx = follower.x - leader.x;
+            const dy = follower.y - leader.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance <= 0.001) {
+                continue;
+            }
+
+            const ux = dx / distance;
+            const uy = dy / distance;
+            const startX = leader.x + ux * gap;
+            const startY = leader.y + uy * gap + offsetY;
+            const endX = follower.x - ux * gap;
+            const endY = follower.y - uy * gap + offsetY;
+            this.shadowGraphics.lineBetween(startX, startY, endX, endY);
+        }
+
+        this.shadowGraphics.fillStyle(0x000000, alpha * 0.9);
+        for (const segment of segments) {
+            this.shadowGraphics.fillCircle(
+                segment.x,
+                segment.y + offsetY,
+                width * 0.45
+            );
+        }
+    }
+
+    updateHeadlight() {
+        if (!this.headlightGraphics || !this.engine) {
+            return;
+        }
+
+        this.headlightGraphics.clear();
+
+        const angle = this.engine.rotation;
+        const length = TRAIN.headlightLength;
+        const spread = Phaser.Math.DegToRad(TRAIN.headlightSpreadDeg);
+        const offset = TRAIN.headlightOffset;
+        const baseX = this.engine.x + Math.cos(angle) * offset;
+        const baseY = this.engine.y + Math.sin(angle) * offset;
+        const leftX = baseX + Math.cos(angle - spread * 0.5) * length;
+        const leftY = baseY + Math.sin(angle - spread * 0.5) * length;
+        const rightX = baseX + Math.cos(angle + spread * 0.5) * length;
+        const rightY = baseY + Math.sin(angle + spread * 0.5) * length;
+
+        const warm = 0xfff2cc;
+        this.headlightGraphics.fillStyle(warm, 0.12);
+        this.headlightGraphics.fillTriangle(baseX, baseY, leftX, leftY, rightX, rightY);
+
+        const innerLength = length * 0.7;
+        const innerSpread = spread * 0.6;
+        const innerLeftX = baseX + Math.cos(angle - innerSpread * 0.5) * innerLength;
+        const innerLeftY = baseY + Math.sin(angle - innerSpread * 0.5) * innerLength;
+        const innerRightX = baseX + Math.cos(angle + innerSpread * 0.5) * innerLength;
+        const innerRightY = baseY + Math.sin(angle + innerSpread * 0.5) * innerLength;
+        this.headlightGraphics.fillStyle(warm, 0.2);
+        this.headlightGraphics.fillTriangle(
+            baseX,
+            baseY,
+            innerLeftX,
+            innerLeftY,
+            innerRightX,
+            innerRightY
+        );
+    }
+
     getFrameFollowFactor(deltaSeconds) {
         // Convert a per-frame follow factor into a frame-rate independent lerp.
         const frames = deltaSeconds * 60;
         return 1 - Math.pow(1 - TRAIN.followFactor, frames);
+    }
+
+    recordWeaponFire(segment) {
+        if (!segment) {
+            return;
+        }
+        segment.heat = Math.min(1, (segment.heat || 0) + TRAIN.heatGainPerShot);
+    }
+
+    applyDragToCar(car, direction, durationSeconds, strength) {
+        if (!car || car.type !== 'car' || !direction) {
+            return;
+        }
+        car.dragDirection = direction;
+        car.dragTimer = Math.max(car.dragTimer || 0, durationSeconds);
+        car.dragStrength = strength;
+    }
+
+    clearDragOnCar(car) {
+        if (!car || car.type !== 'car') {
+            return;
+        }
+        car.dragTimer = 0;
+        car.dragStrength = 0;
+        car.dragDirection = null;
+    }
+
+    applyTurnPenalty(id, multiplier, durationSeconds) {
+        if (!id) {
+            return;
+        }
+        const existing = this.turnPenalties.get(id);
+        if (existing) {
+            existing.timer = Math.max(existing.timer, durationSeconds);
+            existing.multiplier = Math.min(existing.multiplier, multiplier);
+        } else {
+            this.turnPenalties.set(id, {
+                multiplier,
+                timer: durationSeconds
+            });
+        }
+        this.recalculateTurnPenalty();
+    }
+
+    clearTurnPenalty(id) {
+        if (!id || !this.turnPenalties.has(id)) {
+            return;
+        }
+        this.turnPenalties.delete(id);
+        this.recalculateTurnPenalty();
+    }
+
+    recalculateTurnPenalty() {
+        if (this.turnPenalties.size === 0) {
+            this.turnPenaltyMultiplier = 1;
+            return;
+        }
+        let multiplier = 1;
+        for (const penalty of this.turnPenalties.values()) {
+            multiplier = Math.min(multiplier, penalty.multiplier);
+        }
+        this.turnPenaltyMultiplier = multiplier;
+    }
+
+    getHeatIntensity() {
+        return this.heatIntensity || 0;
     }
 
     createEngine(x, y) {
@@ -290,6 +516,17 @@ export class Train {
         );
         cabWindowBottom.setStrokeStyle(2, 0x1a1a1a);
 
+        const heatColor = Phaser.Display.Color.HexStringToColor(PALETTE.warning).color;
+        const heatGlow = this.scene.add.rectangle(
+            boilerX + boilerWidth * 0.12,
+            boilerY - boilerHeight * 0.1,
+            boilerWidth * 0.18,
+            boilerHeight * 0.3,
+            heatColor
+        );
+        heatGlow.setAlpha(0);
+        heatGlow.setBlendMode(Phaser.BlendModes.ADD);
+
         const wheelPositions = [
             cabX - cabWidth * 0.1,
             boilerX - boilerWidth * 0.25,
@@ -313,7 +550,8 @@ export class Train {
             plow,
             smokestack,
             cabWindowTop,
-            cabWindowBottom
+            cabWindowBottom,
+            heatGlow
         ]);
         const accentParts = [plow, smokestack];
 
@@ -331,7 +569,9 @@ export class Train {
             maxHp: this.getEngineMaxHp(),
             weaponCooldown: 0,
             accentParts,
-            container
+            container,
+            heat: 0,
+            heatGlow
         };
     }
 
@@ -367,6 +607,16 @@ export class Train {
             TRAIN.carSize.height * 0.12,
             0x1a1a1a
         );
+        const heatColor = Phaser.Display.Color.HexStringToColor(PALETTE.warning).color;
+        const heatGlow = this.scene.add.rectangle(
+            TRAIN.carSize.width * 0.1,
+            -TRAIN.carSize.height * 0.2,
+            TRAIN.carSize.width * 0.22,
+            TRAIN.carSize.height * 0.28,
+            heatColor
+        );
+        heatGlow.setAlpha(0);
+        heatGlow.setBlendMode(Phaser.BlendModes.ADD);
         const colorAttachments = this.createColorAttachment(colorKey);
         const tierLabel = this.scene.add.text(
             TRAIN.carSize.width * 0.15,
@@ -382,7 +632,15 @@ export class Train {
         );
         tierLabel.setResolution(RENDER.textResolution);
         tierLabel.setOrigin(0.5, 0.5);
-        container.add([carBody, detail, wheelLeft, wheelRight, ...colorAttachments, tierLabel]);
+        container.add([
+            carBody,
+            detail,
+            wheelLeft,
+            wheelRight,
+            heatGlow,
+            ...colorAttachments,
+            tierLabel
+        ]);
 
         nextSegmentId += 1;
         const id = nextSegmentId;
@@ -404,7 +662,12 @@ export class Train {
             followHoldSeconds: 0,
             container,
             tierLabel,
-            carBody
+            carBody,
+            heat: 0,
+            heatGlow,
+            dragTimer: 0,
+            dragStrength: 0,
+            dragDirection: null
         };
     }
 

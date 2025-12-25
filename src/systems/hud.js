@@ -326,10 +326,13 @@ export class Hud {
             suffix = ' - Champion';
         }
 
+        const formationLabel = waveStatus.formationLabel
+            ? ` (${waveStatus.formationLabel})`
+            : '';
         const waveLabel = waveStatus.isEndless
             ? formatNumber(waveStatus.number, 0)
             : `${waveStatus.number}/${waveStatus.total}`;
-        this.waveText.setText(`Wave ${waveLabel}${suffix}`);
+        this.waveText.setText(`Wave ${waveLabel}${suffix}${formationLabel}`);
         this.waveText.setColor(suffix ? PALETTE.warning : PALETTE.uiText);
     }
 

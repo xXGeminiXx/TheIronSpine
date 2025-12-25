@@ -16,15 +16,18 @@ import {
 const ENEMY_DEPTH = 12;
 const PROJECTILE_DEPTH = 11;
 const ENEMY_PROJECTILE_DEPTH = 10;
+const MINE_DEPTH = 9;
 
 let nextEnemyId = 1;
 let nextProjectileId = 1;
 let nextEnemyProjectileId = 1;
+let nextMineId = 1;
 
 export function resetCombatIdCounters() {
     nextEnemyId = 1;
     nextProjectileId = 1;
     nextEnemyProjectileId = 1;
+    nextMineId = 1;
 }
 
 export class CombatSystem {
@@ -35,6 +38,7 @@ export class CombatSystem {
         this.enemies = [];
         this.projectiles = [];
         this.enemyProjectiles = [];
+        this.mines = [];
         this.bonusMultipliers = {
             damage: 1,
             fireRate: 1,
@@ -48,6 +52,7 @@ export class CombatSystem {
 
     update(deltaSeconds) {
         this.updateEnemies(deltaSeconds);
+        this.updateMines(deltaSeconds);
         this.updateProjectiles(deltaSeconds);
         this.updateEnemyProjectiles(deltaSeconds);
         this.updateAutoFire(deltaSeconds);
@@ -62,6 +67,10 @@ export class CombatSystem {
 
             if (enemy.type === 'ranger') {
                 this.updateRangerEnemy(enemy, deltaSeconds);
+            } else if (enemy.type === 'harpooner') {
+                this.updateHarpoonerEnemy(enemy, deltaSeconds);
+            } else if (enemy.type === 'minelayer') {
+                this.updateMinelayerEnemy(enemy, deltaSeconds);
             } else {
                 this.updateMeleeEnemy(enemy, deltaSeconds);
             }
@@ -194,6 +203,18 @@ export class CombatSystem {
             if (hitIndex !== -1) {
                 const enemy = this.enemies[hitIndex];
                 this.applyProjectileDamage(projectile, enemy);
+
+                // Handle orange splash damage
+                if (projectile.stats && projectile.stats.splashRadius && projectile.stats.splashDamage) {
+                    this.applySplashDamage(
+                        projectile.x,
+                        projectile.y,
+                        projectile.stats.splashRadius,
+                        projectile.stats.splashDamage,
+                        hitIndex // Exclude the direct hit enemy (already damaged)
+                    );
+                }
+
                 this.removeProjectileAtIndex(index);
                 if (enemy.hp <= 0) {
                     this.destroyEnemyAtIndex(hitIndex);
@@ -502,6 +523,37 @@ export class CombatSystem {
         if (projectile.slowPercent > 0) {
             enemy.slowMultiplier = 1 - projectile.slowPercent;
             enemy.slowTimer = Math.max(enemy.slowTimer, projectile.slowDuration);
+        }
+    }
+
+    /**
+     * Applies splash damage from orange artillery projectiles.
+     * Damages all enemies within radius except the direct hit target.
+     * @param {number} x - Explosion center X
+     * @param {number} y - Explosion center Y
+     * @param {number} radius - Splash damage radius
+     * @param {number} damage - Splash damage amount
+     * @param {number} excludeIndex - Index of direct hit enemy to exclude
+     */
+    applySplashDamage(x, y, radius, damage, excludeIndex) {
+        for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+            if (index === excludeIndex) {
+                continue; // Skip the direct hit enemy (already damaged)
+            }
+
+            const enemy = this.enemies[index];
+            const hitRadius = radius + enemy.radius;
+            const distSq = (enemy.x - x) ** 2 + (enemy.y - y) ** 2;
+
+            if (distSq <= hitRadius ** 2) {
+                // Apply splash damage (no armor reduction for splash)
+                enemy.hp = Math.max(0, enemy.hp - damage);
+                this.flashEnemy(enemy);
+
+                if (enemy.hp <= 0) {
+                    this.destroyEnemyAtIndex(index);
+                }
+            }
         }
     }
 

@@ -40,7 +40,7 @@ export class VfxSystem {
         }
     }
 
-    updateEngineSmoke(engine, deltaSeconds) {
+    updateEngineSmoke(engine, deltaSeconds, heatLevel = 0) {
         if (!engine) {
             return;
         }
@@ -50,6 +50,8 @@ export class VfxSystem {
             return;
         }
 
+        const heat = Math.max(0, Math.min(1, heatLevel || 0));
+        const interval = Math.max(0.05, EFFECTS.smokeInterval * (1 - heat * 0.6));
         const offset = TRAIN.engineSize.width * 0.35;
         const smokePosition = {
             x: engine.x - Math.cos(engine.rotation) * offset,
@@ -57,7 +59,7 @@ export class VfxSystem {
         };
 
         this.spawnSmoke(smokePosition);
-        this.smokeTimer = EFFECTS.smokeInterval;
+        this.smokeTimer = interval;
     }
 
     spawnMergeBurst(position, colorHex) {

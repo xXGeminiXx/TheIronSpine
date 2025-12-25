@@ -10,6 +10,7 @@
  *   Blue (Cryo):       Pulsing orb - slow, cold, controlling
  *   Yellow (Cannon):   Heavy bolt - powerful, armor-piercing, impactful
  *   Purple (Sniper):   Sleek needle - long-range, precise, penetrating
+ *   Orange (Artillery): Large mortar shell - explosive, area damage, heavy arc
  *
  * TRAIL SYSTEM:
  *   Each projectile can have an optional trail effect that:
@@ -66,6 +67,11 @@ const TRAIL_CONFIG = Object.freeze({
         width: 2.5,
         enabled: true,
         shimmer: true      // Purple projectiles shimmer with energy
+    },
+    orange: {
+        width: 5,
+        enabled: true,
+        smoke: true        // Orange projectiles leave smoke trail
     }
 });
 
@@ -333,6 +339,72 @@ export function createPurpleProjectile(scene, x, y, angle) {
     return { sprite: container, trailData };
 }
 
+/**
+ * Creates an orange artillery projectile - explosive mortar shell.
+ *
+ * Visual: Large spherical shell with fire corona and smoke.
+ * Trail: Heavy smoke particles.
+ * Special: Feels heavy and explosive, area damage on impact.
+ *
+ * @param {Phaser.Scene} scene - The game scene
+ * @param {number} x - Initial X position
+ * @param {number} y - Initial Y position
+ * @param {number} angle - Direction of travel in radians
+ * @returns {object} { sprite, trailData }
+ */
+export function createOrangeProjectile(scene, x, y, angle) {
+    const color = COLORS.orange.phaser;
+    const baseRadius = PROJECTILES.orange ? PROJECTILES.orange.radius : 8;
+
+    const container = scene.add.container(x, y);
+
+    // Outer fire corona - larger orange glow
+    const corona = scene.add.circle(0, 0, baseRadius * 1.5, 0xff4400, 0.4);
+
+    // Main shell body - large sphere
+    const shell = scene.add.circle(0, 0, baseRadius, color, 0.95);
+    shell.setStrokeStyle(2, 0xcc6600);
+
+    // Inner hot core
+    const core = scene.add.circle(0, 0, baseRadius * 0.6, 0xffff00, 0.9);
+
+    // Fire streaks - 3 small flames trailing behind
+    const flames = [];
+    for (let i = 0; i < 3; i++) {
+        const flameAngle = angle + Math.PI + (i - 1) * 0.3;
+        const flameX = Math.cos(flameAngle) * baseRadius * 0.7;
+        const flameY = Math.sin(flameAngle) * baseRadius * 0.7;
+        const flame = scene.add.triangle(
+            flameX, flameY,
+            0, -4,
+            3, 3,
+            -3, 3,
+            0xff6600, 0.8
+        );
+        flame.setRotation(flameAngle);
+        flames.push(flame);
+    }
+
+    container.add([corona, shell, core, ...flames]);
+    container.setRotation(angle);
+
+    // Store references for animation
+    container.setData('corona', corona);
+    container.setData('flames', flames);
+    container.setData('pulsePhase', Math.random() * Math.PI * 2);
+
+    const trailData = {
+        enabled: TRAIL_CONFIG.orange.enabled,
+        history: [],
+        distanceSinceLastSample: 0,
+        graphics: scene.add.graphics(),
+        config: TRAIL_CONFIG.orange
+    };
+    trailData.graphics.setDepth(container.depth - 1);
+
+    return { sprite: container, trailData };
+}
+
 // ============================================================================
 // MAIN FACTORY FUNCTION
 // ============================================================================
@@ -341,7 +413,7 @@ export function createPurpleProjectile(scene, x, y, angle) {
  * Creates a projectile sprite based on color type.
  *
  * @param {Phaser.Scene} scene - The game scene
- * @param {string} colorKey - 'red', 'blue', 'yellow', or 'purple'
+ * @param {string} colorKey - 'red', 'blue', 'yellow', 'purple', or 'orange'
  * @param {number} x - Initial X position
  * @param {number} y - Initial Y position
  * @param {number} angle - Direction of travel in radians
@@ -357,6 +429,8 @@ export function createProjectileSprite(scene, colorKey, x, y, angle) {
             return createYellowProjectile(scene, x, y, angle);
         case 'purple':
             return createPurpleProjectile(scene, x, y, angle);
+        case 'orange':
+            return createOrangeProjectile(scene, x, y, angle);
         default:
             // Fallback: simple circle for unknown colors
             const color = COLORS[colorKey] ? COLORS[colorKey].phaser : 0xffffff;
@@ -420,6 +494,11 @@ export function updateProjectileVisuals(projectile, deltaSeconds) {
     // Handle purple shimmer
     if (projectile.colorKey === 'purple' && config.shimmer) {
         updatePurpleShimmer(projectile.sprite, deltaSeconds);
+    }
+
+    // Handle orange fire pulse
+    if (projectile.colorKey === 'orange' && config.smoke) {
+        updateOrangeFirePulse(projectile.sprite, deltaSeconds);
     }
 }
 
@@ -504,6 +583,37 @@ function updatePurpleShimmer(sprite, deltaSeconds) {
     }
 }
 
+/**
+ * Updates the fire pulse animation for orange projectiles.
+ *
+ * @param {Phaser.GameObjects.Container} sprite - The projectile container
+ * @param {number} deltaSeconds - Time since last frame
+ */
+function updateOrangeFirePulse(sprite, deltaSeconds) {
+    let phase = sprite.getData('pulsePhase') || 0;
+    phase += deltaSeconds * 4 * Math.PI * 2; // Fire pulse speed
+    sprite.setData('pulsePhase', phase);
+
+    // Pulse the corona (fire glow)
+    const corona = sprite.getData('corona');
+    if (corona) {
+        const scale = 1 + Math.sin(phase) * 0.2;
+        corona.setScale(scale);
+        const alpha = 0.3 + Math.sin(phase) * 0.15;
+        corona.setAlpha(alpha);
+    }
+
+    // Flicker the flames
+    const flames = sprite.getData('flames');
+    if (flames) {
+        flames.forEach((flame, index) => {
+            const flamePhase = phase + index * 0.5;
+            const alpha = 0.6 + Math.sin(flamePhase) * 0.3;
+            flame.setAlpha(alpha);
+        });
+    }
+}
+
 // ============================================================================
 // CLEANUP
 // ============================================================================
@@ -530,7 +640,7 @@ export function destroyTrailGraphics(trailData) {
  * Returns impact effect configuration for a color.
  * VfxSystem uses this to spawn appropriate particles.
  *
- * @param {string} colorKey - 'red', 'blue', 'yellow', or 'purple'
+ * @param {string} colorKey - 'red', 'blue', 'yellow', 'purple', or 'orange'
  * @returns {object} Impact effect configuration
  */
 export function getImpactConfig(colorKey) {
@@ -580,6 +690,19 @@ export function getImpactConfig(colorKey) {
                 color: 0xcc88ff,
                 // Special: tight spread for precision feel
                 tightSpread: true
+            };
+        case 'orange':
+            return {
+                type: 'explosion',
+                count: 12,
+                speed: 140,
+                life: 0.5,
+                radius: 3.5,
+                spread: 1.0,
+                color: 0xff8800,
+                // Special: large explosion with heavy camera shake
+                explosionRadius: 80,
+                heavyShake: true
             };
         default:
             return {

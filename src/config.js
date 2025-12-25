@@ -151,12 +151,21 @@ export const TRAIN = Object.freeze({
     carHpByTier: [20, 30, 40],
     engineSize: { width: 110, height: 34 },
     engineHitRadius: 32,
+    headlightLength: 240,
+    headlightSpreadDeg: 42,
+    headlightOffset: 46,
     carSize: { width: 36, height: 26 },
     couplingRadius: 7,
+    shadowOffsetY: 6,
+    shadowWidth: 18,
+    shadowAlpha: 0.18,
     chainReformDelaySeconds: 0.5,
     engineSpacing: 76,
     carSpacing: 42,
-    attachSpacing: 44
+    attachSpacing: 44,
+    heatGainPerShot: 0.18,
+    heatDecayPerSecond: 0.7,
+    heatGlowMaxAlpha: 0.6
 });
 
 export const COLORS = Object.freeze({
@@ -183,10 +192,16 @@ export const COLORS = Object.freeze({
         name: 'Purple',
         hex: '#aa44ff',
         phaser: 0xaa44ff
+    },
+    orange: {
+        key: 'orange',
+        name: 'Orange',
+        hex: '#ff8800',
+        phaser: 0xff8800
     }
 });
 
-export const COLOR_KEYS = Object.freeze(['red', 'blue', 'yellow', 'purple']);
+export const COLOR_KEYS = Object.freeze(['red', 'blue', 'yellow', 'purple', 'orange']);
 
 export const WEAPON_STATS = Object.freeze({
     red: [
@@ -265,6 +280,32 @@ export const WEAPON_STATS = Object.freeze({
             projectileSpeed: 1000,
             penetration: 3
         }
+    ],
+    orange: [
+        {
+            fireRate: 0.6,
+            damage: 20,
+            range: 300,
+            projectileSpeed: 350,
+            splashRadius: 50,
+            splashDamage: 12
+        },
+        {
+            fireRate: 0.8,
+            damage: 28,
+            range: 330,
+            projectileSpeed: 380,
+            splashRadius: 65,
+            splashDamage: 18
+        },
+        {
+            fireRate: 1.0,
+            damage: 38,
+            range: 360,
+            projectileSpeed: 400,
+            splashRadius: 80,
+            splashDamage: 25
+        }
     ]
 });
 
@@ -293,6 +334,11 @@ export const ENGINE_WEAPON = Object.freeze({
             { fireRate: 1.0, damage: 8, range: 300, projectileSpeed: 800, penetration: 1 },
             { fireRate: 1.3, damage: 12, range: 340, projectileSpeed: 850, penetration: 1 },
             { fireRate: 1.6, damage: 16, range: 380, projectileSpeed: 900, penetration: 2 }
+        ],
+        orange: [
+            { fireRate: 0.4, damage: 12, range: 220, projectileSpeed: 320, splashRadius: 40, splashDamage: 8 },
+            { fireRate: 0.5, damage: 16, range: 250, projectileSpeed: 350, splashRadius: 50, splashDamage: 12 },
+            { fireRate: 0.6, damage: 20, range: 280, projectileSpeed: 380, splashRadius: 60, splashDamage: 16 }
         ]
     }
 });
@@ -301,7 +347,8 @@ export const PROJECTILES = Object.freeze({
     red: { radius: 3 },
     blue: { radius: 5 },
     yellow: { radius: 7 },
-    purple: { radius: 4 }
+    purple: { radius: 4 },
+    orange: { radius: 8 }
 });
 
 export const ENEMIES = Object.freeze({
@@ -366,6 +413,43 @@ export const ENEMIES = Object.freeze({
         projectileColor: 0xff5555,
         projectileSpreadDeg: 8,
         orbitDistance: 220
+    },
+    harpooner: {
+        name: 'Harpooner',
+        hp: 55,
+        speed: 70,
+        damage: 6,
+        radius: 18,
+        armor: 2,
+        color: 0xb0b0ff,
+        trim: 0x6655ff,
+        size: { width: 30, height: 22 },
+        attackRange: 260,
+        windupSeconds: 0.5,
+        dragSeconds: 1.2,
+        cooldownSeconds: 3.2,
+        dragPullSpeed: 120,
+        telegraphColor: 0xffaa66,
+        tetherColor: 0xffcc66
+    },
+    minelayer: {
+        name: 'Clamp Layer',
+        hp: 65,
+        speed: 65,
+        damage: 8,
+        radius: 20,
+        armor: 3,
+        color: 0xc0b090,
+        trim: 0x6a5a3c,
+        size: { width: 34, height: 24 },
+        mineCooldown: 3.6,
+        mineSpeed: 35,
+        mineLifetime: 8,
+        mineRadius: 10,
+        clampDuration: 1.6,
+        turnPenaltyMultiplier: 0.7,
+        mineColor: 0xd6c5a0,
+        mineTrim: 0x7a6244
     }
 });
 
@@ -379,14 +463,17 @@ export const SPAWN = Object.freeze({
     pickupCaravanChance: 0.35,
     pickupCaravanMinCount: 3,
     pickupCaravanMaxCount: 5,
-    // Color spawn weights: [red, blue, yellow, purple]
-    // Early game (waves 1-5): Purple sniper favored
-    colorWeightsEarly: [1, 1, 1, 3],
-    // Mid game (waves 6-12): Balanced
-    colorWeightsMid: [1, 1, 1, 1],
-    // Late game (waves 13+): Purple less common
-    colorWeightsLate: [1.5, 1.5, 1.5, 0.5],
+    // Color spawn weights: [red, blue, yellow, purple, orange]
+    // Early game (waves 1-5): Purple sniper favored, orange rare
+    colorWeightsEarly: [1, 1, 1, 3, 0.5],
+    // Mid game (waves 6-12): Orange artillery favored (enemy clustering)
+    colorWeightsMid: [1, 1, 1, 1, 2.0],
+    // Late game (waves 13+): Balanced, purple reduced
+    colorWeightsLate: [1.5, 1.5, 1.5, 0.5, 1.2],
     pickupCaravanSpacing: 38,
+    enemyFormationChance: 0.6,
+    enemyFormationMinCount: 4,
+    enemyFormationSpacing: 28,
     spawnPadding: 60,
     pickupPaddingPerCar: 1.5,
     enemyPaddingPerCar: 3,
@@ -408,12 +495,20 @@ export const WAVES = Object.freeze({
     bossEvery: 10,
     rangerStartWave: 6,
     armoredStartWave: 9,
+    harpoonerStartWave: 7,
+    minelayerStartWave: 10,
     rangerIncreaseEvery: 5,
     armoredIncreaseEvery: 6,
+    harpoonerIncreaseEvery: 6,
+    minelayerIncreaseEvery: 7,
     rangerCountBase: 1,
     rangerCountMax: 3,
     armoredCountBase: 1,
     armoredCountMax: 2,
+    harpoonerCountBase: 1,
+    harpoonerCountMax: 2,
+    minelayerCountBase: 1,
+    minelayerCountMax: 2,
     enemyCountStep: 4,
     enemyCountIncrease: 1,
     maxExtraEnemies: 5,
