@@ -1,7 +1,7 @@
 /**
  * audio.js - Procedural audio system
  *
- * Uses the Web Audio API to synthesize lightweight SFX and a looping engine tone.
+ * Uses the Web Audio API to synthesize lightweight SFX and an optional engine tone.
  * No external assets or build steps required.
  */
 
@@ -12,6 +12,7 @@ export class AudioManager {
         this.masterGain = null;
         this.engineOsc = null;
         this.engineGain = null;
+        this.engineLoopEnabled = false;
 
         this.unlocked = false;
         this.lastWeaponTime = {
@@ -35,7 +36,9 @@ export class AudioManager {
         this.masterGain.gain.value = 0.4;
         this.masterGain.connect(this.context.destination);
 
-        this.setupEngineLoop();
+        if (this.engineLoopEnabled) {
+            this.setupEngineLoop();
+        }
         this.context.resume();
         this.unlocked = true;
     }
@@ -58,6 +61,9 @@ export class AudioManager {
     }
 
     updateEngine(speedRatio, boosting) {
+        if (!this.engineLoopEnabled) {
+            return;
+        }
         if (!this.unlocked || !this.engineOsc || !this.engineGain) {
             return;
         }

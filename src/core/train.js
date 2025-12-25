@@ -1069,6 +1069,9 @@ export class Train {
     }
 
     enforceMaxCars() {
+        if (!Number.isFinite(TRAIN.maxCars)) {
+            return;
+        }
         if (this.cars.length <= TRAIN.maxCars) {
             return;
         }

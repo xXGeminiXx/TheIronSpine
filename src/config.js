@@ -71,7 +71,7 @@
  * MODIFYING VALUES:
  *   Feel free to experiment! Good starting points:
  *   - TRAIN.engineSpeed: Make train faster/slower (default: 100)
- *   - TRAIN.maxCars: Allow longer trains (default: 12)
+ *   - TRAIN.maxCars: Allow longer trains (set to Number.POSITIVE_INFINITY for no cap)
  *   - WAVES.totalToWin: Shorter/longer runs (default: 20)
  *   - WEAPON_STATS: Adjust damage/fire rates for balance
  *   - ENDLESS.enabled: Toggle infinite mode
@@ -146,7 +146,7 @@ export const TRAIN = Object.freeze({
     boostDurationSeconds: 2,
     boostCooldownSeconds: 5,
     followFactor: 0.15,
-    maxCars: 12,
+    maxCars: Number.POSITIVE_INFINITY, // No cap on collected cars.
     engineHp: 55,
     carHpByTier: [20, 30, 40],
     engineSize: { width: 110, height: 34 },

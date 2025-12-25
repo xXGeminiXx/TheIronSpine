@@ -16,7 +16,7 @@ export class PickupManager {
         this.pickups = [];
     }
 
-    update(deltaSeconds, engine) {
+    update(deltaSeconds, engine, cars = null) {
         const now = this.scene.time.now / 1000;
         for (let index = this.pickups.length - 1; index >= 0; index -= 1) {
             const pickup = this.pickups[index];
@@ -37,7 +37,9 @@ export class PickupManager {
                 continue;
             }
 
-            if (engine && this.isCollected(engine, pickup)) {
+            const collectedByEngine = engine && this.isCollected(engine, pickup);
+            const collectedByCar = !collectedByEngine && this.isCollectedByAny(cars, pickup);
+            if (collectedByEngine || collectedByCar) {
                 this.handleCollection(pickup);
                 this.removePickupByIndex(index);
             }
@@ -85,9 +87,21 @@ export class PickupManager {
         return pickup;
     }
 
-    isCollected(engine, pickup) {
-        const maxDistance = engine.radius + pickup.radius;
-        return distanceSquared(engine.x, engine.y, pickup.x, pickup.y) <= maxDistance * maxDistance;
+    isCollected(segment, pickup) {
+        const maxDistance = segment.radius + pickup.radius;
+        return distanceSquared(segment.x, segment.y, pickup.x, pickup.y) <= maxDistance * maxDistance;
+    }
+
+    isCollectedByAny(segments, pickup) {
+        if (!segments || segments.length === 0) {
+            return false;
+        }
+        for (const segment of segments) {
+            if (segment && this.isCollected(segment, pickup)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     handleCollection(pickup) {

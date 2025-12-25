@@ -190,6 +190,7 @@ export class GameScene extends Phaser.Scene {
         this.dropCooldownGraphics = this.add.graphics().setScrollFactor(0).setDepth(150);
         this.dropHoldGraphics = this.add.graphics().setScrollFactor(0).setDepth(151);
         this.awaitingDropHold = false;
+        this.pendingReorder = false;
         this.lastDropWarningAt = 0;
         this.lastDropDeniedAt = 0;
 
@@ -270,8 +271,12 @@ export class GameScene extends Phaser.Scene {
             this.train.boostRemaining > 0
         );
         this.handleTacticalInputs();
-        this.pickupManager.update(deltaSeconds, this.train.engine);
+        this.pickupManager.update(deltaSeconds, this.train.engine, this.train.getWeaponCars());
         this.mergeManager.update(deltaSeconds);
+        if (this.pendingReorder && !this.mergeManager.isBusy()) {
+            this.pendingReorder = false;
+            this.attemptReorder();
+        }
         this.combatSystem.update(deltaSeconds);
         this.spawner.update(deltaSeconds);
         this.updateOverdrive(deltaSeconds);
@@ -442,6 +447,14 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    attemptReorder() {
+        const reordered = this.reorderManager.requestReorder();
+        if (reordered) {
+            this.audio.playReorder();
+        }
+        return reordered;
+    }
+
     handleTacticalInputs() {
         const dropRequested = this.inputController.consumeDropRequest();
         const isHoldingDrop = this.inputController.isDropHeld();
@@ -452,9 +465,11 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (this.inputController.consumeReorderRequest()) {
-            const reordered = this.reorderManager.requestReorder();
-            if (reordered) {
-                this.audio.playReorder();
+            if (this.mergeManager.isBusy()) {
+                this.pendingReorder = true;
+            } else {
+                this.pendingReorder = false;
+                this.attemptReorder();
             }
         }
 
