@@ -106,8 +106,12 @@ export class GameScene extends Phaser.Scene {
             onWeaponFired: (colorKey, source, tier, segment) => {
                 this.audio.playWeapon(colorKey);
                 if (segment) {
-                    this.train.recordWeaponFire(segment);
-                    this.train.applyWeaponRecoil(segment);
+                    if (typeof this.train.recordWeaponFire === 'function') {
+                        this.train.recordWeaponFire(segment);
+                    }
+                    if (typeof this.train.applyWeaponRecoil === 'function') {
+                        this.train.applyWeaponRecoil(segment);
+                    }
                 }
             },
             onEnemyWeaponFired: () => this.audio.playEnemyShot()
@@ -273,12 +277,15 @@ export class GameScene extends Phaser.Scene {
         this.updateOverdrive(deltaSeconds);
         this.updateDropProtectionUi();
         this.vfxSystem.update(deltaSeconds);
-        this.vfxSystem.updateEngineSmoke(
-            this.train.engine,
-            deltaSeconds,
-            this.train.getHeatIntensity()
-        );
-        this.vfxSystem.updateCarDamageEffects(this.train.getWeaponCars(), deltaSeconds);
+        const heatIntensity = typeof this.train.getHeatIntensity === 'function'
+            ? this.train.getHeatIntensity()
+            : (this.train.heatIntensity || 0);
+        if (typeof this.vfxSystem.updateEngineSmoke === 'function') {
+            this.vfxSystem.updateEngineSmoke(this.train.engine, deltaSeconds, heatIntensity);
+        }
+        if (typeof this.vfxSystem.updateCarDamageEffects === 'function') {
+            this.vfxSystem.updateCarDamageEffects(this.train.getWeaponCars(), deltaSeconds);
+        }
 
         this.updateCamera(deltaSeconds);
         this.worldManager.update(deltaSeconds, this.cameras.main);

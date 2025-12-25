@@ -52,7 +52,9 @@ export class CombatSystem {
 
     update(deltaSeconds) {
         this.updateEnemies(deltaSeconds);
-        this.updateMines(deltaSeconds);
+        if (typeof this.updateMines === 'function') {
+            this.updateMines(deltaSeconds);
+        }
         this.updateProjectiles(deltaSeconds);
         this.updateEnemyProjectiles(deltaSeconds);
         this.updateAutoFire(deltaSeconds);
@@ -1234,5 +1236,14 @@ export class CombatSystem {
             projectile.sprite.destroy();
         }
         this.enemyProjectiles.length = 0;
+
+        for (const mine of this.mines) {
+            if (mine.attachedToId) {
+                this.train.clearTurnPenalty(mine.id);
+            }
+            mine.sprite.destroy();
+            mine.ring.destroy();
+        }
+        this.mines.length = 0;
     }
 }

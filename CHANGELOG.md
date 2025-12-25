@@ -83,6 +83,11 @@ When updating this game, follow these conventions:
 - Projectile visual system updated with purple needle and orange mortar visuals
 - Color impact effects updated (purple: tight spread, orange: massive explosion)
 
+### Fixed
+- Guarded against missing heat/mine update helpers to prevent runtime crashes during gameplay.
+- Defensive checks around optional recoil and damage-effect hooks to keep runs stable if modules drift.
+- Clamp mines now clean up on combat reset so turn penalties do not persist between runs.
+
 ### Developer Notes
 - New `weightedRandom()` helper function in spawner.js for dynamic spawn rates
 - Splash damage excludes direct hit target (no double-dipping)
