@@ -30,6 +30,11 @@ It was automatically generated using the document_mapper.py utility.
     📁 run.bat
     │   └── ⚡ run.bat (0.1KB)
     📁 src
+        📁 art
+        │   📁 projectile-visuals.js
+        │   │   └── 📜 projectile-visuals.js (10.5KB)
+        │   📁 world-gen.js
+        │       └── 📜 world-gen.js (15.2KB)
         📁 config.js
         │   └── 📜 config.js (15.0KB)
         📁 core
@@ -95,9 +100,9 @@ It was automatically generated using the document_mapper.py utility.
 
 | Category | Count |
 |----------|--------|
-| Total Files | 39 |
-| Total Directories | 5 |
-| Total Size | 0.39MB |
+| Total Files | 41 |
+| Total Directories | 6 |
+| Total Size | 0.42MB |
 | Maximum Depth | 3 |
 
 ### File Types
@@ -105,7 +110,7 @@ It was automatically generated using the document_mapper.py utility.
 - 📄 no extension: 1 files
 - ⚡ .bat: 1 files
 - 🌐 .html: 1 files
-- 📜 .js: 28 files
+- 📜 .js: 30 files
 - 📝 .md: 8 files
 
 ### File Summaries

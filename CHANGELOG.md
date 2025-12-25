@@ -40,7 +40,34 @@ When updating this game, follow these conventions:
 ## [Unreleased]
 
 ### Added
-- (nothing yet - v1.2.1 just released!)
+- (nothing yet)
+
+---
+
+## [1.3.0] - 2025-12-25 (Christmas Edition)
+
+### Added - Visual Systems
+- **Parallax World System**: 3-layer scrolling background with procedural mountain terrain, debris, vehicle wrecks, warning signs, and craters. Creates sense of moving through an industrial wasteland.
+- **Unique Projectile Visuals**: Each weapon color now has distinct shapes and trails:
+  - Red: Thin tracer darts with streak trails
+  - Blue: Pulsing frost orbs with ice accents
+  - Yellow: Heavy armor-piercing bolts with spark trails
+- **New `src/art/` folder**: Dedicated space for procedural art systems
+
+### Changed
+- Camera zoom significantly reduced (0.85 base vs 1.12) so train doesn't dominate large screens
+- Look-ahead distance increased (110 vs 90) for better forward visibility
+- **Tutorial revamped**: Reduced from 8 to 7 pages, punchier text, accurate game values (55 HP, 40s pulse, etc.), mentions SORT key and Endless mode
+- HUD right margin now matches left margin (prevents "Kills" text cutoff)
+
+### Documentation
+- **ideas.md completely rewritten**: Now contains 30+ feature concepts with [SCAFFOLDING] implementation notes for future LLMs. Organized by priority with code location hints and pseudocode.
+- ideas.md covers: projectile identity, enemy telegraphs, procedural bosses, weather systems, prestige meta-progression, challenge modes, seeded runs, combo systems, station events, and more
+
+### Developer Notes
+- New art systems are modular: `WorldManager` and projectile visuals can be disabled without breaking gameplay
+- Trail system uses position history with fading for smooth visual feedback
+- All new graphics are procedural (no external assets)
 
 ---
 
@@ -131,6 +158,7 @@ When updating this game, follow these conventions:
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.3.0 | 2025-12-25 | Parallax world, unique projectiles, tutorial revamp, HUD fixes |
 | v1.2.1 | 2025-12-24 | Pause/drop protection wired, endless HUD, easier early game |
 | v1.2.0 | 2025-12-24 | Endless mode, achievements, tutorial, reordering |
 | v1.1.0 | 2025-12-21 | Mobile fixes, viewport improvements |

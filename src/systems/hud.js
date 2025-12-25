@@ -3,6 +3,12 @@ import { SETTINGS } from '../core/settings.js';
 import { formatCompact, formatNumber } from '../core/verylargenumbers.js';
 
 const HUD_DEPTH = 100;
+const DAMAGE_PING_DURATION = 0.35;
+const DAMAGE_PING_SIZE = 18;
+const DAMAGE_PING_MARGIN = 14;
+const SPINE_PIP_SIZE = 3;
+const SPINE_PIP_GAP = 2;
+const SPINE_MAX_PIPS = 4;
 
 export class Hud {
     constructor(scene, train, combatSystem) {
@@ -104,6 +110,12 @@ export class Hud {
         this.debugText.setDepth(HUD_DEPTH);
         this.debugText.setAlpha(0);
 
+        this.damagePingGraphics = scene.add.graphics();
+        this.damagePingGraphics.setScrollFactor(0);
+        this.damagePingGraphics.setDepth(HUD_DEPTH);
+        this.damagePings = [];
+        this.mergePulseTime = 0;
+
         this.uiScale = 1;
         this.layout();
         this.applyUiScale();
@@ -123,6 +135,8 @@ export class Hud {
         // Large left margin to prevent clipping on devices with notches/safe areas
         // Mobile browsers and notches can clip 50+ pixels on the left
         const leftMargin = padding + 50;
+        // Right margin matches left for symmetry and safe area protection
+        const rightMargin = padding + 50;
 
         this.engineLabel.setPosition(leftMargin * scale, (padding - 2) * scale);
         this.engineWeaponText.setPosition(leftMargin * scale, (padding + 16) * scale);
@@ -147,14 +161,14 @@ export class Hud {
 
         this.timerText.setPosition(width * 0.5 * scale, padding * scale);
         this.waveText.setPosition(width * 0.5 * scale, (padding + 22) * scale);
-        this.killText.setPosition((width - padding) * scale, padding * scale);
+        this.killText.setPosition((width - rightMargin) * scale, padding * scale);
         this.mergeText.setPosition(width * 0.5 * scale, 120 * scale);
 
         if (this.debugText) {
             this.debugText.setPosition(leftMargin * scale, (height - 80) * scale);
         }
         this.versionText.setPosition(
-            width * scale - padding * scale,
+            (width - rightMargin) * scale,
             height * scale - padding * scale
         );
     }
@@ -174,6 +188,7 @@ export class Hud {
         this.engineHpGraphics.setScale(scale);
         this.hpGraphics.setScale(scale);
         this.pulseGraphics.setScale(scale);
+        this.damagePingGraphics.setScale(scale);
         this.engineLabel.setScale(scale);
         this.engineWeaponText.setScale(scale);
         this.timerText.setScale(scale);
@@ -186,6 +201,7 @@ export class Hud {
     }
 
     update(runTimeSeconds, waveStatus, deltaSeconds, overdriveState, engineWeaponState) {
+        this.mergePulseTime += deltaSeconds;
         this.updateEngineBar();
         this.updateCarBar();
         this.updatePulseMeter(overdriveState);
@@ -194,6 +210,7 @@ export class Hud {
         this.killText.setText(`Kills: ${formatCompact(this.combatSystem.stats.enemiesDestroyed)}`);
         this.updateWaveText(waveStatus);
         this.updateMergeFlash(deltaSeconds);
+        this.updateDamagePings(deltaSeconds);
         this.updateDebugOverlay();
     }
 
@@ -219,10 +236,20 @@ export class Hud {
         const gap = 4;
         const startX = this.carBar.x;
         const startY = this.carBar.y;
+        const mergeCandidates = new Set();
+
+        for (let i = 0; i < segments.length - 1; i += 1) {
+            const first = segments[i];
+            const second = segments[i + 1];
+            if (first.colorKey === second.colorKey && first.tier === second.tier) {
+                mergeCandidates.add(i);
+                mergeCandidates.add(i + 1);
+            }
+        }
 
         this.hpGraphics.clear();
         let offsetX = startX;
-        segments.forEach((segment) => {
+        segments.forEach((segment, index) => {
             const x = offsetX;
             const y = startY;
             const ratio = segment.hp / segment.maxHp;
@@ -233,6 +260,37 @@ export class Hud {
             const fillWidth = Math.max(0, segmentWidth * ratio);
             this.hpGraphics.fillStyle(COLORS[segment.colorKey].phaser, 1);
             this.hpGraphics.fillRect(x, y, fillWidth, segmentHeight);
+
+            const pipCount = Math.min(segment.tier, SPINE_MAX_PIPS);
+            const pipWidth = pipCount * SPINE_PIP_SIZE + Math.max(0, pipCount - 1) * SPINE_PIP_GAP;
+            const pipStartX = x + (segmentWidth - pipWidth) * 0.5;
+            const pipY = y - 6;
+            this.hpGraphics.fillStyle(0xffffff, 0.85);
+            for (let pip = 0; pip < pipCount; pip += 1) {
+                this.hpGraphics.fillRect(
+                    pipStartX + pip * (SPINE_PIP_SIZE + SPINE_PIP_GAP),
+                    pipY,
+                    SPINE_PIP_SIZE,
+                    SPINE_PIP_SIZE
+                );
+            }
+
+            if (segment.tier > SPINE_MAX_PIPS) {
+                const markerX = x + segmentWidth - 3;
+                this.hpGraphics.fillRect(markerX, pipY, 2, SPINE_PIP_SIZE);
+            }
+
+            if (mergeCandidates.has(index)) {
+                const pulse = 0.45 + 0.35 * Math.sin(this.mergePulseTime * 6);
+                const highlight = Phaser.Display.Color.HexStringToColor(PALETTE.warning).color;
+                this.hpGraphics.lineStyle(2, highlight, pulse);
+                this.hpGraphics.strokeRect(
+                    x - 1,
+                    y - 1,
+                    segmentWidth + 2,
+                    segmentHeight + 2
+                );
+            }
 
             offsetX += segmentWidth + gap;
         });
@@ -291,6 +349,77 @@ export class Hud {
         this.mergeText.setAlpha(alpha);
         if (this.mergeFlashTimer === 0) {
             this.mergeText.setText('');
+        }
+    }
+
+    triggerDamagePing(sourceX, sourceY, color) {
+        if (!Number.isFinite(sourceX) || !Number.isFinite(sourceY)) {
+            return;
+        }
+
+        const camera = this.scene.cameras.main;
+        const dx = sourceX - camera.midPoint.x;
+        const dy = sourceY - camera.midPoint.y;
+        if (dx === 0 && dy === 0) {
+            return;
+        }
+
+        const resolvedColor = Number.isFinite(color)
+            ? color
+            : Phaser.Display.Color.HexStringToColor(PALETTE.warning).color;
+        this.damagePings.push({
+            angle: Math.atan2(dy, dx),
+            time: DAMAGE_PING_DURATION,
+            duration: DAMAGE_PING_DURATION,
+            color: resolvedColor
+        });
+    }
+
+    updateDamagePings(deltaSeconds) {
+        if (this.damagePings.length === 0) {
+            this.damagePingGraphics.clear();
+            return;
+        }
+
+        const width = this.scene.scale.width;
+        const height = this.scene.scale.height;
+        const centerX = width * 0.5;
+        const centerY = height * 0.5;
+        const halfWidth = width * 0.5 - DAMAGE_PING_MARGIN;
+        const halfHeight = height * 0.5 - DAMAGE_PING_MARGIN;
+
+        this.damagePingGraphics.clear();
+
+        for (let i = this.damagePings.length - 1; i >= 0; i -= 1) {
+            const ping = this.damagePings[i];
+            ping.time -= deltaSeconds;
+            if (ping.time <= 0) {
+                this.damagePings.splice(i, 1);
+                continue;
+            }
+
+            const alpha = Math.min(1, ping.time / ping.duration);
+            const dirX = Math.cos(ping.angle);
+            const dirY = Math.sin(ping.angle);
+            const tX = dirX === 0 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(dirX);
+            const tY = dirY === 0 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(dirY);
+            const t = Math.min(tX, tY);
+            const edgeX = centerX + dirX * t;
+            const edgeY = centerY + dirY * t;
+
+            const size = DAMAGE_PING_SIZE;
+            const tipX = edgeX - dirX * size;
+            const tipY = edgeY - dirY * size;
+            const baseHalf = size * 0.6;
+            const perpX = -dirY;
+            const perpY = dirX;
+            const leftX = edgeX + perpX * baseHalf;
+            const leftY = edgeY + perpY * baseHalf;
+            const rightX = edgeX - perpX * baseHalf;
+            const rightY = edgeY - perpY * baseHalf;
+
+            this.damagePingGraphics.fillStyle(ping.color, alpha);
+            this.damagePingGraphics.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY);
         }
     }
 

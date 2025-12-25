@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v1.2.1'
+    version: 'v1.3.0'
 });
 
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'
@@ -123,12 +123,14 @@ export const RENDER = Object.freeze({
 });
 
 export const CAMERA = Object.freeze({
-    lookAheadDistance: 90,
+    lookAheadDistance: 110,
     followSmoothing: 8,
-    baseZoom: 1.12,
-    zoomAtSixCars: 1.0,
-    zoomAtTenCars: 0.92,
-    maxZoomOut: 0.85,
+    // Zoomed out more so train doesn't dominate large monitors.
+    // The world should feel big, the train should feel like it's IN the world.
+    baseZoom: 0.85,
+    zoomAtSixCars: 0.78,
+    zoomAtTenCars: 0.70,
+    maxZoomOut: 0.62,
     zoomSmoothing: 4,
     shakeLight: 0.008,
     shakeMedium: 0.015,
@@ -339,6 +341,10 @@ export const SPAWN = Object.freeze({
     pickupSpawnMaxSeconds: 12,
     pickupDriftSpeed: 30,
     pickupLifetimeSeconds: 15,
+    pickupCaravanChance: 0.35,
+    pickupCaravanMinCount: 3,
+    pickupCaravanMaxCount: 5,
+    pickupCaravanSpacing: 38,
     spawnPadding: 60,
     pickupPaddingPerCar: 1.5,
     enemyPaddingPerCar: 3,

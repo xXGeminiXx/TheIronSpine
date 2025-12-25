@@ -34,6 +34,7 @@ import {
     PALETTE,
     TRAIN
 } from '../config.js';
+import { WorldManager } from '../art/world-gen.js';
 import { PickupManager, resetPickupIdCounter } from '../core/pickups.js';
 import { MergeManager } from '../core/merge.js';
 import { ReorderManager } from '../core/reorder.js';
@@ -78,6 +79,9 @@ export class GameScene extends Phaser.Scene {
         this.isGameOver = false;
         this.setupBackground();
 
+        // Initialize the parallax world system for visual depth
+        this.worldManager = new WorldManager(this);
+
         const startX = 0;
         const startY = 0;
 
@@ -96,7 +100,7 @@ export class GameScene extends Phaser.Scene {
         this.inputController = new InputController(this);
         this.audio = new AudioManager(this);
         this.combatSystem = new CombatSystem(this, this.train, {
-            onTrainHit: (segment) => this.onTrainHit(segment),
+            onTrainHit: (segment, result, source) => this.onTrainHit(segment, result, source),
             onEnemyDestroyed: (enemy) => this.onEnemyDestroyed(enemy),
             onWeaponFired: (colorKey) => this.audio.playWeapon(colorKey),
             onEnemyWeaponFired: () => this.audio.playEnemyShot()
@@ -200,6 +204,9 @@ export class GameScene extends Phaser.Scene {
         this.hud.destroy();
         this.vfxSystem.destroy();
         this.audio.destroy();
+        if (this.worldManager) {
+            this.worldManager.destroy();
+        }
         if (this.pauseOverlay) {
             this.pauseOverlay.destroy();
         }
@@ -257,6 +264,7 @@ export class GameScene extends Phaser.Scene {
         this.vfxSystem.updateEngineSmoke(this.train.engine, deltaSeconds);
 
         this.updateCamera(deltaSeconds);
+        this.worldManager.update(deltaSeconds, this.cameras.main);
         this.applyUiScale();
         this.updateGridVisibility();
         if (this.spawner.isVictoryReady()) {
@@ -395,9 +403,12 @@ export class GameScene extends Phaser.Scene {
         this.audio.playMerge();
     }
 
-    onTrainHit() {
+    onTrainHit(segment, result, source) {
         this.applyScreenShake(80, CAMERA.shakeLight);
         this.audio.playHit();
+        if (source && this.hud) {
+            this.hud.triggerDamagePing(source.x, source.y, source.color);
+        }
     }
 
     onEnemyDestroyed(enemy) {

@@ -48,7 +48,17 @@ export class Spawner {
         const countMax = Math.max(countMin, Math.round(SPAWN.pickupCountMax * countScale));
         const pickupCount = randomInt(countMin, countMax);
 
-        for (let i = 0; i < pickupCount; i += 1) {
+        let remaining = pickupCount;
+        if (remaining >= SPAWN.pickupCaravanMinCount && Math.random() < SPAWN.pickupCaravanChance) {
+            const caravanCount = Math.min(
+                remaining,
+                randomInt(SPAWN.pickupCaravanMinCount, SPAWN.pickupCaravanMaxCount)
+            );
+            this.spawnPickupCaravan(caravanCount);
+            remaining -= caravanCount;
+        }
+
+        for (let i = 0; i < remaining; i += 1) {
             this.spawnPickup();
         }
 
@@ -114,6 +124,51 @@ export class Spawner {
 
         const colorKey = pickRandom(COLOR_KEYS);
         this.pickupManager.spawnPickup(spawnPoint, colorKey, velocity);
+    }
+
+    spawnPickupCaravan(count) {
+        const camera = this.scene.cameras.main;
+        const forward = this.getForwardVector();
+        const padding = this.getDynamicPadding(
+            SPAWN.spawnPadding,
+            SPAWN.pickupPaddingPerCar
+        );
+        const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
+        const center = camera.midPoint;
+        const driftDirection = normalizeVector(
+            center.x - spawnPoint.x,
+            center.y - spawnPoint.y
+        );
+        const velocity = {
+            x: driftDirection.x * SPAWN.pickupDriftSpeed,
+            y: driftDirection.y * SPAWN.pickupDriftSpeed
+        };
+        const spacing = SPAWN.pickupCaravanSpacing;
+        const colors = this.buildCaravanColors(count);
+
+        for (let i = 0; i < count; i += 1) {
+            const offset = spacing * i;
+            const position = {
+                x: spawnPoint.x - driftDirection.x * offset,
+                y: spawnPoint.y - driftDirection.y * offset
+            };
+            this.pickupManager.spawnPickup(position, colors[i], velocity);
+        }
+    }
+
+    buildCaravanColors(count) {
+        const colors = [];
+        if (count >= 2) {
+            const pairColor = pickRandom(COLOR_KEYS);
+            colors.push(pairColor, pairColor);
+            for (let i = 2; i < count; i += 1) {
+                colors.push(pickRandom(COLOR_KEYS));
+            }
+            return colors;
+        }
+
+        colors.push(pickRandom(COLOR_KEYS));
+        return colors;
     }
 
     spawnSkirmisher(scale) {

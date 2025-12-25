@@ -39,40 +39,39 @@ import { PALETTE, UI, RENDER, COLORS } from '../config.js';
 
 const TUTORIAL_PAGES = [
     {
-        title: 'STEERING',
+        title: 'THE IRON SPINE',
         lines: [
-            'Move your pointer (or finger) to steer.',
-            'The engine always moves forward.',
-            'Your train follows where you point.',
+            'You command an articulated war train.',
+            'Steel. Firepower. Destruction.',
             '',
-            'TIP: Wide turns keep your cars safe.'
+            'Collect cars. Merge them. Obliterate.',
+            'Clear 20 waves to win.'
         ],
         demo: (scene, x, y, w, h) => {
-            // Draw a simple pointer-to-engine visualization
             const centerX = x + w * 0.5;
             const centerY = y + h * 0.4;
 
-            // Engine representation
-            const engine = scene.add.rectangle(centerX - 40, centerY, 50, 24, 0x4a4a4a);
+            // Draw a mini train
+            const engine = scene.add.rectangle(centerX - 60, centerY, 54, 28, 0x4a4a4a);
             engine.setStrokeStyle(2, 0xffa500);
             scene.tutorialElements.push(engine);
 
-            // Pointer indicator
-            const pointer = scene.add.circle(centerX + 60, centerY - 30, 10, 0xffffff, 0.8);
-            scene.tutorialElements.push(pointer);
+            const colors = [0xff4444, 0x4444ff, 0xffcc00];
+            for (let i = 0; i < 3; i++) {
+                const car = scene.add.rectangle(centerX - 10 + i * 44, centerY, 36, 24, colors[i]);
+                car.setStrokeStyle(2, 0xffffff);
+                scene.tutorialElements.push(car);
 
-            // Dashed line from engine to pointer
-            const line = scene.add.graphics();
-            line.lineStyle(2, 0xffffff, 0.4);
-            line.lineBetween(centerX - 15, centerY, centerX + 60, centerY - 30);
-            scene.tutorialElements.push(line);
+                const coupling = scene.add.circle(centerX - 30 + i * 44, centerY, 5, 0x888888);
+                scene.tutorialElements.push(coupling);
+            }
 
-            // Animate pointer in circle
+            // Pulse the engine accent
             scene.tweens.add({
-                targets: pointer,
-                x: centerX + 80,
-                y: centerY + 40,
-                duration: 2000,
+                targets: engine,
+                scaleX: 1.05,
+                scaleY: 1.05,
+                duration: 800,
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.easeInOut'
@@ -80,100 +79,110 @@ const TUTORIAL_PAGES = [
         }
     },
     {
-        title: 'BOOST',
+        title: 'CONTROLS',
         lines: [
-            'Tap or click to activate BOOST.',
-            'Your train speeds up for 2 seconds.',
-            '5 second cooldown between boosts.',
+            'POINTER/FINGER: Steer the train',
+            'CLICK/TAP: Boost (2s speed, 5s cooldown)',
+            'E or PULSE: Screen-wide attack',
+            'R or SORT: Reorder cars for merges',
             '',
-            'Use boost to escape danger or',
-            'quickly reach pickups.'
+            'The engine always moves forward.'
         ],
         demo: (scene, x, y, w, h) => {
             const centerX = x + w * 0.5;
-            const centerY = y + h * 0.4;
-
-            // Speed lines effect
-            for (let i = 0; i < 5; i++) {
-                const lineY = centerY - 30 + i * 15;
-                const speedLine = scene.add.rectangle(
-                    centerX - 20 - i * 10,
-                    lineY,
-                    40 + i * 8,
-                    3,
-                    0xffa500,
-                    0.6 - i * 0.1
-                );
-                scene.tutorialElements.push(speedLine);
-
-                scene.tweens.add({
-                    targets: speedLine,
-                    x: speedLine.x - 30,
-                    alpha: 0,
-                    duration: 600,
-                    delay: i * 100,
-                    repeat: -1,
-                    repeatDelay: 800
-                });
-            }
+            const centerY = y + h * 0.35;
 
             // Engine
-            const engine = scene.add.rectangle(centerX + 30, centerY, 50, 24, 0x4a4a4a);
+            const engine = scene.add.rectangle(centerX - 30, centerY, 50, 24, 0x4a4a4a);
             engine.setStrokeStyle(2, 0xffa500);
             scene.tutorialElements.push(engine);
+
+            // Pointer with trail
+            const pointer = scene.add.circle(centerX + 60, centerY - 20, 8, 0xffffff, 0.9);
+            scene.tutorialElements.push(pointer);
+
+            // Animate pointer in smooth arc
+            scene.tweens.add({
+                targets: pointer,
+                x: centerX + 80,
+                y: centerY + 30,
+                duration: 1500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
+            // Speed lines on boost
+            for (let i = 0; i < 4; i++) {
+                const line = scene.add.rectangle(
+                    centerX - 70 - i * 12,
+                    centerY,
+                    20 + i * 5,
+                    2,
+                    0xffa500,
+                    0.5 - i * 0.1
+                );
+                scene.tutorialElements.push(line);
+
+                scene.tweens.add({
+                    targets: line,
+                    x: line.x - 40,
+                    alpha: 0,
+                    duration: 400,
+                    delay: 2000 + i * 80,
+                    repeat: -1,
+                    repeatDelay: 2500
+                });
+            }
         }
     },
     {
-        title: 'CAR COLORS',
+        title: 'WEAPONS',
         lines: [
-            'Each color has a unique weapon:',
+            'Cars auto-fire. You just steer.',
             '',
-            'RED - Rapid-fire machine gun',
-            'BLUE - Slow cryo (freezes enemies)',
-            'YELLOW - Armor-piercing cannon',
-            '',
-            'Cars fire automatically at enemies.'
+            'RED: Rapid tracers (high DPS)',
+            'BLUE: Frost orbs (slows enemies)',
+            'YELLOW: Heavy bolts (pierces armor)'
         ],
         demo: (scene, x, y, w, h) => {
             const centerX = x + w * 0.5;
-            const startY = y + h * 0.25;
-            const spacing = 45;
+            const startY = y + h * 0.2;
+            const spacing = 50;
 
-            const colorData = [
-                { key: 'red', label: 'RAPID', color: 0xff4444 },
-                { key: 'blue', label: 'FREEZE', color: 0x4444ff },
-                { key: 'yellow', label: 'PIERCE', color: 0xffcc00 }
+            const weaponData = [
+                { color: 0xff4444, label: 'RAPID FIRE', shape: 'dart' },
+                { color: 0x4444ff, label: 'FREEZE', shape: 'orb' },
+                { color: 0xffcc00, label: 'PIERCE', shape: 'bolt' }
             ];
 
-            colorData.forEach((data, i) => {
-                const carY = startY + i * spacing;
+            weaponData.forEach((data, i) => {
+                const rowY = startY + i * spacing;
 
-                // Car box
-                const car = scene.add.rectangle(centerX - 60, carY, 36, 26, data.color);
+                // Car
+                const car = scene.add.rectangle(centerX - 80, rowY, 40, 28, data.color);
                 car.setStrokeStyle(2, 0xffffff);
                 scene.tutorialElements.push(car);
 
-                // Weapon label
-                const label = scene.add.text(centerX - 20, carY, data.label, {
-                    fontFamily: UI.fontFamily,
-                    fontSize: '14px',
-                    color: PALETTE.uiText
-                }).setOrigin(0, 0.5);
-                label.setResolution(RENDER.textResolution);
-                scene.tutorialElements.push(label);
+                // Projectile based on shape
+                let proj;
+                if (data.shape === 'dart') {
+                    proj = scene.add.rectangle(centerX, rowY, 12, 3, data.color);
+                } else if (data.shape === 'orb') {
+                    proj = scene.add.circle(centerX, rowY, 6, data.color);
+                } else {
+                    proj = scene.add.rectangle(centerX, rowY, 16, 5, data.color);
+                }
+                scene.tutorialElements.push(proj);
 
-                // Bullet representation
-                const bulletX = centerX + 50;
-                const bullet = scene.add.circle(bulletX, carY, 4, data.color);
-                scene.tutorialElements.push(bullet);
-
+                // Fire animation
                 scene.tweens.add({
-                    targets: bullet,
-                    x: bulletX + 40,
-                    alpha: 0,
-                    duration: 400,
+                    targets: proj,
+                    x: centerX + 80,
+                    alpha: { from: 1, to: 0.3 },
+                    duration: 350 + i * 100,
                     repeat: -1,
-                    repeatDelay: 600 - i * 150
+                    repeatDelay: 300 + i * 150
                 });
             });
         }
@@ -181,321 +190,239 @@ const TUTORIAL_PAGES = [
     {
         title: 'MERGING',
         lines: [
-            'When 2 adjacent same-color,',
-            'same-tier cars touch...',
+            '2 adjacent same-color, same-tier cars',
+            'automatically MERGE into a stronger one.',
             '',
-            'They MERGE into 1 stronger car!',
-            '',
-            'Higher tiers = more damage.',
-            'This is the core strategy.'
+            'Tier 2 = 2x power. Tier 3 = 3x power.',
+            'Strategic collection order matters!'
         ],
         demo: (scene, x, y, w, h) => {
             const centerX = x + w * 0.5;
             const centerY = y + h * 0.35;
 
-            // Two cars approaching
-            const car1 = scene.add.rectangle(centerX - 50, centerY, 36, 26, 0xff4444);
+            // Two T1 cars
+            const car1 = scene.add.rectangle(centerX - 55, centerY, 36, 26, 0xff4444);
             car1.setStrokeStyle(2, 0xffffff);
             scene.tutorialElements.push(car1);
 
-            const car2 = scene.add.rectangle(centerX + 50, centerY, 36, 26, 0xff4444);
+            const car2 = scene.add.rectangle(centerX + 55, centerY, 36, 26, 0xff4444);
             car2.setStrokeStyle(2, 0xffffff);
             scene.tutorialElements.push(car2);
 
-            // Tier 1 labels
-            const t1 = scene.add.text(centerX - 50, centerY, '1', {
-                fontFamily: UI.fontFamily,
-                fontSize: '16px',
-                color: '#ffffff'
+            const t1 = scene.add.text(centerX - 55, centerY, '1', {
+                fontFamily: UI.fontFamily, fontSize: '18px', color: '#ffffff'
             }).setOrigin(0.5);
             t1.setResolution(RENDER.textResolution);
             scene.tutorialElements.push(t1);
 
-            const t2 = scene.add.text(centerX + 50, centerY, '1', {
-                fontFamily: UI.fontFamily,
-                fontSize: '16px',
-                color: '#ffffff'
+            const t2 = scene.add.text(centerX + 55, centerY, '1', {
+                fontFamily: UI.fontFamily, fontSize: '18px', color: '#ffffff'
             }).setOrigin(0.5);
             t2.setResolution(RENDER.textResolution);
             scene.tutorialElements.push(t2);
 
-            // Merged car (hidden initially)
-            const merged = scene.add.rectangle(centerX, centerY + 60, 44, 32, 0xff4444);
+            // Merged T2 car
+            const merged = scene.add.rectangle(centerX, centerY + 55, 48, 34, 0xff4444);
             merged.setStrokeStyle(3, 0xffffff);
             merged.setAlpha(0);
             scene.tutorialElements.push(merged);
 
-            const mergedLabel = scene.add.text(centerX, centerY + 60, '2', {
-                fontFamily: UI.fontFamily,
-                fontSize: '20px',
-                color: '#ffffff',
-                fontStyle: 'bold'
+            const mergedT = scene.add.text(centerX, centerY + 55, '2', {
+                fontFamily: UI.fontFamily, fontSize: '22px', color: '#ffffff', fontStyle: 'bold'
             }).setOrigin(0.5);
-            mergedLabel.setResolution(RENDER.textResolution);
-            mergedLabel.setAlpha(0);
-            scene.tutorialElements.push(mergedLabel);
+            mergedT.setResolution(RENDER.textResolution);
+            mergedT.setAlpha(0);
+            scene.tutorialElements.push(mergedT);
 
-            // Arrow
-            const arrow = scene.add.text(centerX, centerY + 30, 'v', {
-                fontFamily: UI.fontFamily,
-                fontSize: '24px',
-                color: PALETTE.warning
-            }).setOrigin(0.5);
-            arrow.setAlpha(0);
+            const arrow = scene.add.text(centerX, centerY + 28, 'v', {
+                fontFamily: UI.fontFamily, fontSize: '20px', color: PALETTE.warning
+            }).setOrigin(0.5).setAlpha(0);
             scene.tutorialElements.push(arrow);
 
-            // Animation sequence
+            // Animation
             scene.tweens.timeline({
                 loop: -1,
-                loopDelay: 1500,
+                loopDelay: 1200,
                 tweens: [
-                    {
-                        targets: [car1, t1],
-                        x: centerX - 20,
-                        duration: 800,
-                        ease: 'Power2'
-                    },
-                    {
-                        targets: [car2, t2],
-                        x: centerX + 20,
-                        duration: 800,
-                        ease: 'Power2',
-                        offset: 0
-                    },
-                    {
-                        targets: [car1, car2, t1, t2],
-                        alpha: 0,
-                        duration: 200
-                    },
-                    {
-                        targets: arrow,
-                        alpha: 1,
-                        duration: 200
-                    },
-                    {
-                        targets: [merged, mergedLabel],
-                        alpha: 1,
-                        duration: 300
-                    },
-                    {
-                        targets: [merged, mergedLabel, arrow],
-                        alpha: 0,
-                        duration: 300,
-                        delay: 800
-                    },
-                    {
-                        targets: [car1, t1],
-                        x: centerX - 50,
-                        alpha: 1,
-                        duration: 0
-                    },
-                    {
-                        targets: [car2, t2],
-                        x: centerX + 50,
-                        alpha: 1,
-                        duration: 0
-                    }
+                    { targets: [car1, t1], x: centerX - 22, duration: 600, ease: 'Power2' },
+                    { targets: [car2, t2], x: centerX + 22, duration: 600, ease: 'Power2', offset: 0 },
+                    { targets: [car1, car2, t1, t2], alpha: 0, duration: 150 },
+                    { targets: arrow, alpha: 1, duration: 150 },
+                    { targets: [merged, mergedT], alpha: 1, duration: 250 },
+                    { targets: [merged, mergedT, arrow], alpha: 0, duration: 200, delay: 700 },
+                    { targets: [car1, t1], x: centerX - 55, alpha: 1, duration: 0 },
+                    { targets: [car2, t2], x: centerX + 55, alpha: 1, duration: 0 }
                 ]
             });
         }
     },
     {
-        title: 'COLLECTING',
+        title: 'SURVIVAL',
         lines: [
-            'Pickups spawn around the arena.',
-            'Drive your ENGINE into them.',
+            'If a car is destroyed, the chain BREAKS.',
+            'All cars behind it are LOST.',
             '',
-            'New cars attach to your tail.',
-            'Arrange wisely for merges!',
+            'Protect your engine (55 HP).',
+            'Engine dies = Game Over.',
             '',
-            'Max train length: 12 cars.'
+            'Press D to drop your tail car.'
         ],
         demo: (scene, x, y, w, h) => {
             const centerX = x + w * 0.5;
             const centerY = y + h * 0.35;
 
-            // Pickup representation
-            const pickup = scene.add.rectangle(centerX + 60, centerY, 30, 30, 0xffcc00, 0.8);
-            pickup.setStrokeStyle(2, 0xffffff);
-            scene.tutorialElements.push(pickup);
-
-            // Glow effect
-            scene.tweens.add({
-                targets: pickup,
-                scaleX: 1.15,
-                scaleY: 1.15,
-                duration: 600,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
-            });
-
-            // Engine approaching
-            const engine = scene.add.rectangle(centerX - 60, centerY, 50, 24, 0x4a4a4a);
+            // Engine
+            const engine = scene.add.rectangle(centerX - 80, centerY, 50, 24, 0x4a4a4a);
             engine.setStrokeStyle(2, 0xffa500);
             scene.tutorialElements.push(engine);
 
-            // Car following engine
-            const car = scene.add.rectangle(centerX - 100, centerY, 36, 26, 0x4444ff);
-            car.setStrokeStyle(2, 0xffffff);
-            scene.tutorialElements.push(car);
+            // Chain of cars
+            const cars = [];
+            for (let i = 0; i < 3; i++) {
+                const car = scene.add.rectangle(centerX - 30 + i * 44, centerY, 36, 24, 0xff4444);
+                car.setStrokeStyle(2, 0xffffff);
+                scene.tutorialElements.push(car);
+                cars.push(car);
+            }
 
-            // Coupling
-            const coupling = scene.add.circle(centerX - 80, centerY, 5, 0x888888);
-            scene.tutorialElements.push(coupling);
-        }
-    },
-    {
-        title: 'COMBAT',
-        lines: [
-            'Enemies attack your train.',
-            'Cars auto-fire when enemies are near.',
-            '',
-            'If a car is destroyed, the chain',
-            'breaks and trailing cars are lost!',
-            '',
-            'Protect your engine at all costs.'
-        ],
-        demo: (scene, x, y, w, h) => {
-            const centerX = x + w * 0.5;
-            const centerY = y + h * 0.35;
-
-            // Enemy
-            const enemy = scene.add.rectangle(centerX + 70, centerY, 24, 16, 0xb0b0b0);
+            // Enemy attacking middle car
+            const enemy = scene.add.rectangle(centerX + 20, centerY - 50, 20, 14, 0xb0b0b0);
             enemy.setStrokeStyle(2, 0xff6666);
             scene.tutorialElements.push(enemy);
 
-            // Train segment
-            const car = scene.add.rectangle(centerX - 40, centerY, 36, 26, 0xff4444);
-            car.setStrokeStyle(2, 0xffffff);
-            scene.tutorialElements.push(car);
-
-            // Projectiles firing
-            for (let i = 0; i < 3; i++) {
-                const bullet = scene.add.circle(centerX, centerY, 3, 0xff4444);
-                bullet.setAlpha(0);
-                scene.tutorialElements.push(bullet);
-
-                scene.tweens.add({
-                    targets: bullet,
-                    x: centerX + 60,
-                    alpha: { from: 1, to: 0 },
-                    duration: 300,
-                    delay: i * 400,
-                    repeat: -1,
-                    repeatDelay: 900
-                });
-            }
-
-            // Enemy flash on hit
+            // Break animation - middle car destroyed, trailing car fades
             scene.tweens.add({
-                targets: enemy,
-                alpha: 0.5,
-                duration: 100,
+                targets: cars[1],
+                alpha: 0.3,
+                duration: 300,
+                delay: 1500,
                 yoyo: true,
+                hold: 200,
                 repeat: -1,
-                repeatDelay: 400
+                repeatDelay: 2000
+            });
+
+            scene.tweens.add({
+                targets: cars[2],
+                alpha: 0.2,
+                y: centerY + 30,
+                duration: 400,
+                delay: 1650,
+                yoyo: true,
+                hold: 200,
+                repeat: -1,
+                repeatDelay: 1900
             });
         }
     },
     {
-        title: 'OVERDRIVE',
+        title: 'OVERDRIVE PULSE',
         lines: [
-            'The PULSE meter charges over time.',
-            'When full, press E (or PULSE button)',
-            'to damage ALL enemies on screen.',
+            'The PULSE meter charges over 40 seconds.',
+            'When ready, press E to blast ALL enemies.',
             '',
-            'Save it for emergencies!',
-            'Takes 40 seconds to recharge.'
+            'Deals 40 damage screen-wide.',
+            'Save it for swarms or bosses!'
         ],
         demo: (scene, x, y, w, h) => {
             const centerX = x + w * 0.5;
             const centerY = y + h * 0.35;
 
-            // Pulse meter representation
-            const meterBg = scene.add.rectangle(centerX, centerY, 120, 16, 0x333333);
-            meterBg.setStrokeStyle(1, 0x666666);
+            // Meter
+            const meterBg = scene.add.rectangle(centerX, centerY, 140, 18, 0x222222);
+            meterBg.setStrokeStyle(1, 0x444444);
             scene.tutorialElements.push(meterBg);
 
-            const meterFill = scene.add.rectangle(centerX - 60, centerY, 0, 14, 0xffcc00);
+            const meterFill = scene.add.rectangle(centerX - 70, centerY, 0, 14, 0xffcc00);
             meterFill.setOrigin(0, 0.5);
             scene.tutorialElements.push(meterFill);
 
-            // Fill animation
             scene.tweens.add({
                 targets: meterFill,
-                width: 120,
-                duration: 3000,
+                width: 140,
+                duration: 2500,
                 repeat: -1,
-                repeatDelay: 1000
+                repeatDelay: 1200
             });
 
-            // READY text
-            const readyText = scene.add.text(centerX, centerY + 30, 'PULSE READY!', {
-                fontFamily: UI.fontFamily,
-                fontSize: '14px',
-                color: PALETTE.warning
-            }).setOrigin(0.5);
-            readyText.setResolution(RENDER.textResolution);
-            readyText.setAlpha(0);
-            scene.tutorialElements.push(readyText);
+            // PULSE! explosion effect
+            const pulseRing = scene.add.circle(centerX, centerY + 50, 10, 0xffcc00, 0);
+            pulseRing.setStrokeStyle(3, 0xffcc00);
+            pulseRing.setAlpha(0);
+            scene.tutorialElements.push(pulseRing);
 
             scene.tweens.add({
-                targets: readyText,
+                targets: pulseRing,
+                radius: 60,
+                alpha: { from: 1, to: 0 },
+                duration: 500,
+                delay: 2600,
+                repeat: -1,
+                repeatDelay: 3200
+            });
+
+            const pulseText = scene.add.text(centerX, centerY + 50, 'PULSE!', {
+                fontFamily: UI.fontFamily, fontSize: '16px', color: PALETTE.warning
+            }).setOrigin(0.5).setAlpha(0);
+            pulseText.setResolution(RENDER.textResolution);
+            scene.tutorialElements.push(pulseText);
+
+            scene.tweens.add({
+                targets: pulseText,
                 alpha: 1,
-                duration: 200,
-                delay: 3000,
+                scaleX: 1.3,
+                scaleY: 1.3,
+                duration: 300,
+                delay: 2600,
                 yoyo: true,
-                hold: 800,
+                hold: 300,
                 repeat: -1,
                 repeatDelay: 3000
             });
         }
     },
     {
-        title: 'WIN CONDITION',
+        title: 'VICTORY',
         lines: [
-            'Survive and clear 20 WAVES.',
+            'Clear all 20 WAVES to win.',
             '',
-            'Every 5th wave: Champion enemy',
-            'Every 10th wave: BOSS enemy',
+            'Wave 5, 15: Champion (tougher enemy)',
+            'Wave 10, 20: BOSS (heavy armor)',
             '',
-            'Enemies get stronger each wave.',
-            'Build your train. Survive. Win.'
+            'Or enable ENDLESS MODE in settings',
+            'for infinite waves. How far can you go?'
         ],
         demo: (scene, x, y, w, h) => {
             const centerX = x + w * 0.5;
             const centerY = y + h * 0.3;
 
-            // Wave counter
             const waveText = scene.add.text(centerX, centerY, 'WAVE 20', {
                 fontFamily: UI.fontFamily,
-                fontSize: '28px',
+                fontSize: '32px',
                 color: PALETTE.warning,
                 fontStyle: 'bold'
             }).setOrigin(0.5);
             waveText.setResolution(RENDER.textResolution);
             scene.tutorialElements.push(waveText);
 
-            // Victory text
-            const victoryText = scene.add.text(centerX, centerY + 40, 'VICTORY!', {
+            const victoryText = scene.add.text(centerX, centerY + 45, 'VICTORY!', {
                 fontFamily: UI.fontFamily,
-                fontSize: '20px',
-                color: '#00ff00'
-            }).setOrigin(0.5);
+                fontSize: '24px',
+                color: '#44ff44'
+            }).setOrigin(0.5).setAlpha(0);
             victoryText.setResolution(RENDER.textResolution);
-            victoryText.setAlpha(0);
             scene.tutorialElements.push(victoryText);
 
             scene.tweens.add({
                 targets: victoryText,
                 alpha: 1,
-                scaleX: 1.2,
-                scaleY: 1.2,
-                duration: 500,
+                scaleX: 1.15,
+                scaleY: 1.15,
+                duration: 600,
+                delay: 800,
                 yoyo: true,
                 repeat: -1,
-                repeatDelay: 1500
+                repeatDelay: 1200
             });
         }
     }

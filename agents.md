@@ -77,7 +77,7 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 
 ## Current State (Update As Progress Happens)
 
-### Phase: Active Prototype
+### Phase: Active Development (v1.3.0)
 
 **Completed:**
 - Engine silhouette finalized (cartoon locomotive)
@@ -89,13 +89,26 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 - Auto-fire weapons + engine weapon scaling
 - HUD, menus, settings, end screen
 - Dev console (numpad decimal toggle)
+- Tutorial scene (8 interactive pages)
+- Achievement system (25+ achievements with bonuses)
+- Endless mode with logarithmic scaling
+- Drop protection and pause overlay
+- Car reordering (R key / SORT button)
+- Armored and Ranger enemies
+- Procedural audio system
+- **Parallax world system** (v1.3)
+- **Unique projectile visuals per color** (v1.3)
 
-**Next Steps:**
-1. Refine car silhouettes (minor shape polish)
-2. Decide and implement car reordering mechanic
-3. Add Armored and Ranger enemies
-4. Add audio + light VFX polish
-5. Iterate balance based on playtests
+**New Art Systems (v1.3):**
+- `src/art/world-gen.js` - Parallax background with debris, wrecks, signs
+- `src/art/projectile-visuals.js` - Unique shapes and trails per weapon color
+
+**Next Steps (see ideas.md for full list):**
+1. Enemy attack telegraphs (fairness)
+2. Procedural boss factory (endless variety)
+3. Station events (interactive world elements)
+4. Seeded runs (shareable/competitive)
+5. Visual damage states on cars
 
 ---
 
@@ -170,10 +183,15 @@ requestAnimationFrame(gameLoop);
 | File | Purpose |
 |------|---------|
 | `design-doc.md` | Authoritative design specification. All mechanics, numbers, decisions. Includes historical context on Bartellami Jet's Assault Train. |
-| `ideas.md` | Future concepts parking lot. NOT in scope for V1. |
+| `ideas.md` | **EXPANDED** - 30+ feature concepts with [SCAFFOLDING] implementation notes for future LLMs. Priority-organized with code location hints. |
 | `agents.md` | This file. Context for AI assistants. |
 | `CLAUDE.md` | Project-specific Claude Code instructions. |
 | `index.html` | Main game file for Iron Spine. |
+| `src/config.js` | Central configuration for all game values. |
+| `src/art/` | Procedural art systems (world-gen, projectile-visuals). |
+| `src/core/` | Core game logic (train, merge, pickups, math). |
+| `src/systems/` | Game systems (combat, spawner, audio, hud, achievements). |
+| `src/scenes/` | Phaser scenes (game, menu, end, tutorial, settings). |
 
 ---
 
@@ -232,12 +250,13 @@ requestAnimationFrame(gameLoop);
 **Out of Scope (V2+):**
 - Additional colors (Green, Orange, Purple, etc.)
 - Utility cars (Armor, Repair, Magnet)
-- Meta-progression / unlocks
-- Sound effects / music
-- Mobile-specific optimizations
+- Meta-progression / prestige system
 - Multiplayer
 - Leaderboards
-- Save system
+- Enemy attack telegraphs (planned next)
+- Procedural boss generation (planned next)
+- Weather/biome system
+- Station events / interactive background elements
 
 ---
 

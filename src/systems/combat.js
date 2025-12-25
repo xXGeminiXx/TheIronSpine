@@ -7,6 +7,11 @@ import {
     WEAPON_STATS
 } from '../config.js';
 import { angleTo, distanceSquared, normalizeVector } from '../core/math.js';
+import {
+    createProjectileSprite,
+    updateProjectileVisuals,
+    destroyTrailGraphics
+} from '../art/projectile-visuals.js';
 
 const ENEMY_DEPTH = 12;
 const PROJECTILE_DEPTH = 11;
@@ -177,6 +182,9 @@ export class CombatSystem {
             projectile.sprite.x = projectile.x;
             projectile.sprite.y = projectile.y;
 
+            // Update visual effects (trails, pulsing, etc.)
+            updateProjectileVisuals(projectile, deltaSeconds);
+
             if (projectile.travelled >= projectile.range) {
                 this.removeProjectileAtIndex(index);
                 continue;
@@ -212,7 +220,11 @@ export class CombatSystem {
             if (hitSegment) {
                 const result = this.train.applyDamageToSegment(hitSegment, projectile.damage);
                 if (this.eventHandlers.onTrainHit) {
-                    this.eventHandlers.onTrainHit(hitSegment, result);
+                    this.eventHandlers.onTrainHit(hitSegment, result, {
+                        x: projectile.origin ? projectile.origin.x : projectile.x,
+                        y: projectile.origin ? projectile.origin.y : projectile.y,
+                        color: projectile.color
+                    });
                 }
                 this.removeEnemyProjectileAtIndex(index);
             }
@@ -382,10 +394,17 @@ export class CombatSystem {
         const angle = angleTo(car.x, car.y, target.x, target.y);
         const velocity = normalizeVector(Math.cos(angle), Math.sin(angle));
         const speed = weaponStats.projectileSpeed;
-        const color = COLORS[car.colorKey].phaser;
         const radius = PROJECTILES[car.colorKey].radius;
 
-        const sprite = this.scene.add.circle(car.x, car.y, radius, color);
+        // Create unique projectile visuals based on color type.
+        // Each color has distinct shape, trail, and impact effects.
+        const { sprite, trailData } = createProjectileSprite(
+            this.scene,
+            car.colorKey,
+            car.x,
+            car.y,
+            angle
+        );
         sprite.setDepth(PROJECTILE_DEPTH);
 
         nextProjectileId += 1;
@@ -407,7 +426,8 @@ export class CombatSystem {
             slowDuration: weaponStats.slowDuration || 0,
             armorPierce: weaponStats.armorPierce || 0,
             radius,
-            sprite
+            sprite,
+            trailData  // Trail data for visual effects
         };
 
         this.projectiles.push(projectile);
@@ -455,7 +475,9 @@ export class CombatSystem {
             travelled: 0,
             damage: enemy.damage,
             radius: Math.max(size.width, size.height) * 0.5,
-            sprite
+            sprite,
+            origin: { x: enemy.x, y: enemy.y },
+            color
         };
 
         this.enemyProjectiles.push(projectile);
@@ -532,7 +554,11 @@ export class CombatSystem {
     handleEnemyCollision(enemy, target) {
         const result = this.train.applyDamageToSegment(target, enemy.damage);
         if (this.eventHandlers.onTrainHit) {
-            this.eventHandlers.onTrainHit(target, result);
+            this.eventHandlers.onTrainHit(target, result, {
+                x: enemy.x,
+                y: enemy.y,
+                color: enemy.trim || enemy.baseColor
+            });
         }
     }
 
@@ -549,6 +575,8 @@ export class CombatSystem {
     removeProjectileAtIndex(index) {
         const [projectile] = this.projectiles.splice(index, 1);
         projectile.sprite.destroy();
+        // Clean up trail graphics to prevent memory leaks
+        destroyTrailGraphics(projectile.trailData);
     }
 
     removeEnemyProjectileAtIndex(index) {
@@ -762,6 +790,7 @@ export class CombatSystem {
 
         for (const projectile of this.projectiles) {
             projectile.sprite.destroy();
+            destroyTrailGraphics(projectile.trailData);
         }
         this.projectiles.length = 0;
 
