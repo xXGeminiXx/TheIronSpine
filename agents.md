@@ -77,7 +77,7 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 
 ## Current State (Update As Progress Happens)
 
-### Phase: Active Development (v1.3.0)
+### Phase: Production (v1.3.0 - Live on GitHub Pages)
 
 **Completed:**
 - Engine silhouette finalized (cartoon locomotive)
@@ -100,15 +100,21 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 - **Unique projectile visuals per color** (v1.3)
 
 **New Art Systems (v1.3):**
-- `src/art/world-gen.js` - Parallax background with debris, wrecks, signs
-- `src/art/projectile-visuals.js` - Unique shapes and trails per weapon color
+- `src/art/world-gen.js` - Parallax background with mountain terrain, debris, wrecks, signs
+- `src/art/projectile-visuals.js` - Unique shapes and trails per weapon color (tracers, orbs, bolts)
 
-**Next Steps (see ideas.md for full list):**
-1. Enemy attack telegraphs (fairness)
-2. Procedural boss factory (endless variety)
-3. Station events (interactive world elements)
-4. Seeded runs (shareable/competitive)
-5. Visual damage states on cars
+**New HUD Systems (v1.3 - Codex):**
+- Tier pips per car in spine readout
+- Merge candidate highlighting (pulsing borders)
+- Damage direction pings (edge arrows)
+- Pickup caravans (3-5 grouped spawns)
+
+**Current Priority (see ideas.md for comprehensive list):**
+1. **P1**: Car damage states (visual HP feedback)
+2. **P1**: Armor plate language per tier (visual identity)
+3. **P2**: Attack telegraphs (fairness + readability)
+4. **P3**: Procedural boss factory (showcase feature)
+5. **P10**: Cutting-edge features (adaptive AI, ghost replays, emergent narrative)
 
 ---
 

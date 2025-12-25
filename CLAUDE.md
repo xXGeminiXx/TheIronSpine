@@ -311,9 +311,37 @@ Connectors:        Spherical couplings (visual only)
 - Max particles: 200
 - If FPS drops below 45: reduce particles first, then projectiles
 
+## Working with AI Agents (Important for LLMs)
+
+David works with multiple AI coding assistants. Here's what he expects:
+
+### Code Comments
+- **Heavy commenting expected**: This is for future LLMs, not just humans
+- Focus on "why" and sequencing, not just "what"
+- Explain intent, trade-offs, and rationale in core systems
+- Document edge cases and assumptions
+
+### Documentation Style
+- **Mark completed work**: Use `[DONE]` tags in ideas.md
+- **Scaffolding blocks**: Include `[SCAFFOLDING]` with implementation hints
+- **Prioritize ruthlessly**: Organize ideas by priority (P1, P2, etc.)
+- **Consolidate**: One ideas.md file, not scattered notes
+
+### Feature Development
+- **Modular design**: One file per system, clean imports
+- **Procedural everything**: Push the limits of procedural generation
+- **Cutting-edge concepts**: Modern game design (adaptive AI, emergent narrative, etc.)
+- **Visual feedback**: Every mechanic needs clear visual communication
+
+### Collaboration
+- David uses both Claude (Sonnet) and Codex
+- Leave clear context for next agent
+- Don't delete work without asking (mark [DEPRECATED] instead)
+- Update agents.md when completing major features
+
 ## When Stuck
 
 1. Re-read `design-doc.md` - the answer is probably there
 2. Simplify - cut features, don't add complexity to "fix" issues
-3. Ask David - he'd rather clarify than have wrong assumptions
-4. Take a break - fresh eyes often solve problems faster
+3. Check `ideas.md` for scaffolding hints on similar systems
+4. Ask David - he'd rather clarify than have wrong assumptions
