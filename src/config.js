@@ -163,6 +163,10 @@ export const TRAIN = Object.freeze({
     engineSpacing: 76,
     carSpacing: 42,
     attachSpacing: 44,
+    engineGlowMinAlpha: 0.25,
+    engineGlowMaxAlpha: 0.6,
+    engineGlowPulseSeconds: 0.9,
+    engineGlowScale: 1.2,
     heatGainPerShot: 0.18,
     heatDecayPerSecond: 0.7,
     heatGlowMaxAlpha: 0.6
@@ -535,6 +539,11 @@ export const EFFECTS = Object.freeze({
     smokeInterval: 0.2,
     smokeLife: 0.8,
     smokeSpeed: 22,
+    carSmokeInterval: 0.45,
+    sparkInterval: 0.5,
+    sparkParticleCount: 3,
+    sparkParticleSpeed: 90,
+    sparkParticleLife: 0.35,
     pulseRingDuration: 0.45
 });
 

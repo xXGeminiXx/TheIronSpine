@@ -107,6 +107,7 @@ export class GameScene extends Phaser.Scene {
                 this.audio.playWeapon(colorKey);
                 if (segment) {
                     this.train.recordWeaponFire(segment);
+                    this.train.applyWeaponRecoil(segment);
                 }
             },
             onEnemyWeaponFired: () => this.audio.playEnemyShot()
@@ -277,6 +278,7 @@ export class GameScene extends Phaser.Scene {
             deltaSeconds,
             this.train.getHeatIntensity()
         );
+        this.vfxSystem.updateCarDamageEffects(this.train.getWeaponCars(), deltaSeconds);
 
         this.updateCamera(deltaSeconds);
         this.worldManager.update(deltaSeconds, this.cameras.main);

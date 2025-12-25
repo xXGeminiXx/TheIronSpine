@@ -43,8 +43,10 @@ export class SettingsScene extends Phaser.Scene {
 
         this.toggleTexts = [];
         this.descTexts = [];
-        this.startY = height * 0.32;
-        this.stepY = 58;
+        this.toggleCount = toggles.length;
+        this.startY = height * 0.28;
+        this.stepY = (height * 0.76 - this.startY)
+            / Math.max(1, this.toggleCount - 1);
 
         toggles.forEach((toggle, index) => {
             const y = this.startY + index * this.stepY;
@@ -123,7 +125,9 @@ export class SettingsScene extends Phaser.Scene {
     layout() {
         const { width, height } = this.scale;
         this.titleText.setPosition(width * 0.5, height * 0.14);
-        this.startY = height * 0.32;
+        this.startY = height * 0.28;
+        this.stepY = (height * 0.76 - this.startY)
+            / Math.max(1, this.toggleCount - 1);
         this.toggleTexts.forEach((entry, index) => {
             const y = this.startY + index * this.stepY;
             entry.text.setPosition(width * 0.5, y);

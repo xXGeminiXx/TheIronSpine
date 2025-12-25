@@ -40,6 +40,45 @@ export class VfxSystem {
         }
     }
 
+    updateCarDamageEffects(cars, deltaSeconds) {
+        if (!cars || cars.length === 0) {
+            return;
+        }
+
+        for (const car of cars) {
+            if (!car || car.hp <= 0 || car.maxHp <= 0) {
+                continue;
+            }
+
+            const ratio = car.hp / car.maxHp;
+            if (ratio <= 0.25) {
+                car.smokeTimer = Math.max(0, (car.smokeTimer || 0) - deltaSeconds);
+                if (car.smokeTimer === 0) {
+                    this.spawnSmoke({
+                        x: car.x + (Math.random() - 0.5) * TRAIN.carSize.width * 0.4,
+                        y: car.y + (Math.random() - 0.5) * TRAIN.carSize.height * 0.3
+                    });
+                    car.smokeTimer = EFFECTS.carSmokeInterval;
+                }
+            } else {
+                car.smokeTimer = 0;
+            }
+
+            if (ratio <= 0.5 && ratio > 0.25) {
+                car.sparkTimer = Math.max(0, (car.sparkTimer || 0) - deltaSeconds);
+                if (car.sparkTimer === 0) {
+                    this.spawnSparks({
+                        x: car.x + (Math.random() - 0.5) * TRAIN.carSize.width * 0.3,
+                        y: car.y + (Math.random() - 0.5) * TRAIN.carSize.height * 0.2
+                    });
+                    car.sparkTimer = EFFECTS.sparkInterval;
+                }
+            } else {
+                car.sparkTimer = 0;
+            }
+        }
+    }
+
     updateEngineSmoke(engine, deltaSeconds, heatLevel = 0) {
         if (!engine) {
             return;
@@ -60,6 +99,18 @@ export class VfxSystem {
 
         this.spawnSmoke(smokePosition);
         this.smokeTimer = interval;
+    }
+
+    spawnSparks(position) {
+        const color = this.resolveColor(PALETTE.warning);
+        this.spawnBurst(position, color, {
+            count: EFFECTS.sparkParticleCount,
+            speed: EFFECTS.sparkParticleSpeed,
+            life: EFFECTS.sparkParticleLife,
+            radius: 2.2,
+            alpha: 0.9,
+            spread: 0.6
+        });
     }
 
     spawnMergeBurst(position, colorHex) {

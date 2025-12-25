@@ -51,6 +51,22 @@ When updating this game, follow these conventions:
   - Large mortar shell projectile with fire corona and pulsing animation
   - Weighted spawn: 2x more common in mid game (waves 6-12) when enemies cluster
   - New `applySplashDamage()` system in combat.js
+- **HUD Readability Upgrades**
+  - Spine readout strip with tier pips and merge candidate pulses
+  - Damage direction pings for off-screen hits
+  - Optional range arcs toggle in Settings
+- **Pickup Caravans**: Groups of 3-5 pickups drift together for intentional merge planning
+- **Skirmisher Formation Waves**: Wedge/column/line/pincer formations with wave label callout
+- **Train Visual Identity Pack**
+  - Car damage states (scratches, cracks, sparks, smoke)
+  - Tier armor plating language (t2+ plates, t3 edge/stripe, t4 insignia)
+  - Engine accent glow pulsing with dominant weapon color
+  - Directional muzzle recoil on car weapons
+  - Heat vent glow tied to firing intensity
+  - Unified ground shadow and engine headlight scan cone
+- **New Enemies**
+  - Harpooner: telegraphed tether that drags a mid-car sideways
+  - Clamp Mine Layer: drops mines that latch onto cars and apply a temporary turn penalty
 
 ### Changed
 - **All weapon ranges extended and varied**:
@@ -63,6 +79,7 @@ When updating this game, follow these conventions:
   - Early game favors purple snipers to help with range
   - Mid game favors orange artillery for crowd control
   - Late game reduces purple, balances others
+- Settings menu spacing updated to accommodate new toggles
 - Projectile visual system updated with purple needle and orange mortar visuals
 - Color impact effects updated (purple: tight spread, orange: massive explosion)
 
@@ -72,6 +89,8 @@ When updating this game, follow these conventions:
 - Splash damage ignores armor for balance (slow fire rate compensation)
 - Purple penetration uses existing penetration counter system
 - Orange fire pulse animation uses corona scaling and flame flickering
+- Harpoon tether uses a wind-up -> drag loop with per-car lateral pull
+- Clamp mines can be shot off before they expire
 
 ---
 

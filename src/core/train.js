@@ -53,6 +53,8 @@ export class Train {
         this.speedMultiplier = 1;
         this.turnSpeedMultiplier = 1;
         this.hpMultiplier = 1;
+        this.engineAccentTween = null;
+        this.engineAccentColorKey = null;
         this.engine = this.createEngine(startX, startY);
         this.cars = [];
         this.couplings = [];
@@ -465,6 +467,24 @@ export class Train {
         plow.y = groundY;
         plow.setStrokeStyle(2, 0x1a1a1a);
 
+        const plowGlow = this.scene.add.triangle(
+            0,
+            0,
+            0,
+            0,
+            plowWidth,
+            0,
+            0,
+            -plowHeight,
+            accentColor
+        );
+        plowGlow.setOrigin(0, 1);
+        plowGlow.x = plowBackX;
+        plowGlow.y = groundY;
+        plowGlow.setScale(TRAIN.engineGlowScale);
+        plowGlow.setAlpha(TRAIN.engineGlowMinAlpha);
+        plowGlow.setBlendMode(Phaser.BlendModes.ADD);
+
         const boiler = this.scene.add.rectangle(
             boilerX,
             boilerY,
@@ -495,6 +515,17 @@ export class Train {
             accentColor
         );
         smokestack.setStrokeStyle(2, 0x1a1a1a);
+
+        const stackGlow = this.scene.add.rectangle(
+            stackX,
+            stackY,
+            stackWidth,
+            stackHeight,
+            accentColor
+        );
+        stackGlow.setScale(TRAIN.engineGlowScale);
+        stackGlow.setAlpha(TRAIN.engineGlowMinAlpha);
+        stackGlow.setBlendMode(Phaser.BlendModes.ADD);
 
         const windowWidth = cabWidth * 0.32;
         const windowHeight = cabHeight * 0.22;
@@ -547,13 +578,16 @@ export class Train {
             ...engineWheels,
             boiler,
             cab,
+            plowGlow,
             plow,
+            stackGlow,
             smokestack,
             cabWindowTop,
             cabWindowBottom,
             heatGlow
         ]);
         const accentParts = [plow, smokestack];
+        const accentGlowParts = [plowGlow, stackGlow];
 
         nextSegmentId += 1;
         const id = nextSegmentId;
@@ -569,6 +603,7 @@ export class Train {
             maxHp: this.getEngineMaxHp(),
             weaponCooldown: 0,
             accentParts,
+            accentGlowParts,
             container,
             heat: 0,
             heatGlow
@@ -595,6 +630,7 @@ export class Train {
             TRAIN.carSize.height * 0.6,
             Phaser.Display.Color.HexStringToColor(PALETTE.engineBody).color
         );
+        const tierPlates = this.createTierPlates(tier, carColor);
         const wheelLeft = this.scene.add.circle(
             -TRAIN.carSize.width * 0.2,
             TRAIN.carSize.height * 0.35,
@@ -617,7 +653,10 @@ export class Train {
         );
         heatGlow.setAlpha(0);
         heatGlow.setBlendMode(Phaser.BlendModes.ADD);
-        const colorAttachments = this.createColorAttachment(colorKey);
+        const attachmentData = this.createColorAttachment(colorKey);
+        const colorAttachments = attachmentData.parts;
+        const weaponBarrels = attachmentData.barrels;
+        const damageOverlay = this.scene.add.graphics();
         const tierLabel = this.scene.add.text(
             TRAIN.carSize.width * 0.15,
             -TRAIN.carSize.height * 0.35,
@@ -635,6 +674,8 @@ export class Train {
         container.add([
             carBody,
             detail,
+            ...tierPlates,
+            damageOverlay,
             wheelLeft,
             wheelRight,
             heatGlow,
@@ -645,7 +686,7 @@ export class Train {
         nextSegmentId += 1;
         const id = nextSegmentId;
         const maxHp = this.getCarHpForTier(tier);
-        return {
+        const car = {
             id,
             type: 'car',
             colorKey,
@@ -663,12 +704,20 @@ export class Train {
             container,
             tierLabel,
             carBody,
+            weaponBarrels,
+            damageOverlay,
+            damageState: -1,
+            damageSeed: id * 13 + tier * 7,
             heat: 0,
             heatGlow,
             dragTimer: 0,
             dragStrength: 0,
-            dragDirection: null
+            dragDirection: null,
+            smokeTimer: 0,
+            sparkTimer: 0
         };
+        this.updateCarDamageState(car);
+        return car;
     }
 
     getCarHpForTier(tier) {
@@ -714,7 +763,201 @@ export class Train {
             const ratio = car.maxHp > 0 ? car.hp / car.maxHp : 1;
             car.maxHp = this.getCarHpForTier(car.tier);
             car.hp = Math.min(car.maxHp, Math.round(car.maxHp * ratio));
+            this.updateCarDamageState(car);
         }
+    }
+
+    applyWeaponRecoil(segment) {
+        if (!segment || !segment.weaponBarrels || segment.weaponBarrels.length === 0) {
+            return;
+        }
+
+        const recoilDistance = 4;
+        const recoilDuration = 80;
+        for (const barrel of segment.weaponBarrels) {
+            const baseX = Number.isFinite(barrel.recoilBaseX)
+                ? barrel.recoilBaseX
+                : barrel.x;
+            this.scene.tweens.killTweensOf(barrel);
+            barrel.x = baseX - recoilDistance;
+            this.scene.tweens.add({
+                targets: barrel,
+                x: baseX,
+                duration: recoilDuration,
+                ease: 'Quad.Out'
+            });
+        }
+    }
+
+    updateCarDamageState(car) {
+        if (!car || !car.damageOverlay) {
+            return;
+        }
+
+        const ratio = car.maxHp > 0 ? car.hp / car.maxHp : 0;
+        let state = 0;
+        if (ratio <= 0.25) {
+            state = 3;
+        } else if (ratio <= 0.5) {
+            state = 2;
+        } else if (ratio <= 0.75) {
+            state = 1;
+        }
+
+        if (state === car.damageState) {
+            return;
+        }
+
+        car.damageState = state;
+        car.damageOverlay.clear();
+        if (state === 0) {
+            return;
+        }
+
+        const rng = this.createDamageRng(car.damageSeed + state * 31);
+        const halfW = TRAIN.carSize.width * 0.5;
+        const halfH = TRAIN.carSize.height * 0.5;
+        const scratchColor = this.shadeColor(car.carBody.fillColor, -40);
+        const crackColor = this.shadeColor(car.carBody.fillColor, -80);
+
+        if (state >= 1) {
+            const scratchCount = 2 + Math.floor(rng() * 2);
+            car.damageOverlay.lineStyle(1, scratchColor, 0.7);
+            for (let i = 0; i < scratchCount; i += 1) {
+                const startX = (rng() * 2 - 1) * halfW * 0.75;
+                const startY = (rng() * 2 - 1) * halfH * 0.55;
+                const length = 4 + rng() * 8;
+                const angle = rng() * Math.PI * 2;
+                const endX = startX + Math.cos(angle) * length;
+                const endY = startY + Math.sin(angle) * length;
+                car.damageOverlay.strokeLineShape(
+                    new Phaser.Geom.Line(startX, startY, endX, endY)
+                );
+            }
+        }
+
+        if (state >= 2) {
+            const crackCount = state >= 3 ? 3 : 2;
+            car.damageOverlay.lineStyle(1.4, crackColor, 0.85);
+            for (let i = 0; i < crackCount; i += 1) {
+                const edge = Math.floor(rng() * 4);
+                let startX = 0;
+                let startY = 0;
+                if (edge === 0) {
+                    startX = -halfW * 0.9;
+                    startY = (rng() * 2 - 1) * halfH * 0.6;
+                } else if (edge === 1) {
+                    startX = halfW * 0.9;
+                    startY = (rng() * 2 - 1) * halfH * 0.6;
+                } else if (edge === 2) {
+                    startX = (rng() * 2 - 1) * halfW * 0.7;
+                    startY = -halfH * 0.75;
+                } else {
+                    startX = (rng() * 2 - 1) * halfW * 0.7;
+                    startY = halfH * 0.75;
+                }
+
+                const midX = startX * 0.5 + (rng() - 0.5) * 6;
+                const midY = startY * 0.5 + (rng() - 0.5) * 6;
+                const endX = (rng() * 2 - 1) * halfW * 0.25;
+                const endY = (rng() * 2 - 1) * halfH * 0.25;
+                car.damageOverlay.beginPath();
+                car.damageOverlay.moveTo(startX, startY);
+                car.damageOverlay.lineTo(midX, midY);
+                car.damageOverlay.lineTo(endX, endY);
+                car.damageOverlay.strokePath();
+            }
+        }
+    }
+
+    createDamageRng(seed) {
+        let value = seed % 2147483647;
+        if (value <= 0) {
+            value += 2147483646;
+        }
+        return () => {
+            value = (value * 16807) % 2147483647;
+            return (value - 1) / 2147483646;
+        };
+    }
+
+    shadeColor(colorValue, amount) {
+        const color = Phaser.Display.Color.IntegerToColor(colorValue);
+        const r = Phaser.Math.Clamp(color.r + amount, 0, 255);
+        const g = Phaser.Math.Clamp(color.g + amount, 0, 255);
+        const b = Phaser.Math.Clamp(color.b + amount, 0, 255);
+        return Phaser.Display.Color.GetColor(r, g, b);
+    }
+
+    createTierPlates(tier, carColor) {
+        const plates = [];
+        const plateColor = this.shadeColor(carColor, -25);
+        const edgeColor = this.shadeColor(carColor, -55);
+
+        if (tier >= 2) {
+            const plate = this.scene.add.rectangle(
+                -TRAIN.carSize.width * 0.08,
+                -TRAIN.carSize.height * 0.05,
+                TRAIN.carSize.width * 0.46,
+                TRAIN.carSize.height * 0.45,
+                plateColor
+            );
+            plate.setStrokeStyle(1, 0x1a1a1a, 0.8);
+            const rivetLeft = this.scene.add.circle(
+                -TRAIN.carSize.width * 0.26,
+                -TRAIN.carSize.height * 0.18,
+                1.6,
+                0x1a1a1a
+            );
+            const rivetRight = this.scene.add.circle(
+                -TRAIN.carSize.width * 0.02,
+                TRAIN.carSize.height * 0.12,
+                1.6,
+                0x1a1a1a
+            );
+            plates.push(plate, rivetLeft, rivetRight);
+        }
+
+        if (tier >= 3) {
+            const topEdge = this.scene.add.rectangle(
+                0,
+                -TRAIN.carSize.height * 0.38,
+                TRAIN.carSize.width * 0.9,
+                3,
+                edgeColor
+            );
+            const stripe = this.scene.add.graphics();
+            stripe.lineStyle(2, 0x1a1a1a, 0.7);
+            stripe.lineBetween(
+                -TRAIN.carSize.width * 0.25,
+                -TRAIN.carSize.height * 0.32,
+                TRAIN.carSize.width * 0.05,
+                -TRAIN.carSize.height * 0.05
+            );
+            plates.push(topEdge, stripe);
+        }
+
+        if (tier >= 4) {
+            const insignia = this.scene.add.circle(
+                TRAIN.carSize.width * 0.22,
+                -TRAIN.carSize.height * 0.05,
+                TRAIN.carSize.height * 0.18,
+                this.shadeColor(carColor, 20)
+            );
+            insignia.setStrokeStyle(1, 0x1a1a1a, 0.8);
+            const seam = this.scene.add.rectangle(
+                0,
+                TRAIN.carSize.height * 0.32,
+                TRAIN.carSize.width * 0.52,
+                2,
+                Phaser.Display.Color.HexStringToColor(PALETTE.warning).color
+            );
+            seam.setAlpha(0.4);
+            seam.setBlendMode(Phaser.BlendModes.ADD);
+            plates.push(insignia, seam);
+        }
+
+        return plates;
     }
 
     addCar(colorKey, tier = 1) {
@@ -761,7 +1004,9 @@ export class Train {
                 TRAIN.carSize.height * 0.12,
                 0x1a1a1a
             );
-            return [vent, barrelLeft, barrelRight];
+            barrelLeft.recoilBaseX = barrelLeft.x;
+            barrelRight.recoilBaseX = barrelRight.x;
+            return { parts: [vent, barrelLeft, barrelRight], barrels: [barrelLeft, barrelRight] };
         }
 
         if (colorKey === 'blue') {
@@ -780,7 +1025,15 @@ export class Train {
                 0xcce6ff
             );
             coil.setStrokeStyle(2, 0x1a1a1a);
-            return [base, coil];
+            const nozzle = this.scene.add.rectangle(
+                TRAIN.carSize.width * 0.36,
+                0,
+                TRAIN.carSize.width * 0.16,
+                TRAIN.carSize.height * 0.12,
+                0x1a1a1a
+            );
+            nozzle.recoilBaseX = nozzle.x;
+            return { parts: [base, coil, nozzle], barrels: [nozzle] };
         }
 
         if (colorKey === 'yellow') {
@@ -799,10 +1052,11 @@ export class Train {
                 TRAIN.carSize.height * 0.2,
                 0x1a1a1a
             );
-            return [recoilPlate, cannon];
+            cannon.recoilBaseX = cannon.x;
+            return { parts: [recoilPlate, cannon], barrels: [cannon] };
         }
 
-        return [];
+        return { parts: [], barrels: [] };
     }
 
     jettisonTail() {
@@ -923,6 +1177,9 @@ export class Train {
         }
 
         segment.hp = Math.max(0, segment.hp - amount);
+        if (segment.type === 'car') {
+            this.updateCarDamageState(segment);
+        }
         if (segment.hp > 0) {
             return { destroyed: false, type: segment.type };
         }
@@ -985,11 +1242,49 @@ export class Train {
     }
 
     setEngineAccentColor(colorKey) {
+        if (this.engineAccentColorKey === colorKey) {
+            return;
+        }
+        this.engineAccentColorKey = colorKey;
         const fallback = Phaser.Display.Color.HexStringToColor(PALETTE.engineAccent).color;
         const color = colorKey && COLORS[colorKey] ? COLORS[colorKey].phaser : fallback;
         for (const part of this.engine.accentParts) {
             part.fillColor = color;
         }
+
+        if (this.engine.accentGlowParts) {
+            for (const part of this.engine.accentGlowParts) {
+                part.fillColor = color;
+            }
+        }
+
+        if (this.engineAccentTween) {
+            this.scene.tweens.killTweensOf(this.engine.accentGlowParts);
+            this.engineAccentTween = null;
+        }
+
+        if (!this.engine.accentGlowParts || this.engine.accentGlowParts.length === 0) {
+            return;
+        }
+
+        if (!colorKey) {
+            this.engine.accentGlowParts.forEach((part) => {
+                part.setAlpha(TRAIN.engineGlowMinAlpha * 0.4);
+            });
+            return;
+        }
+
+        this.engine.accentGlowParts.forEach((part) => {
+            part.setAlpha(TRAIN.engineGlowMinAlpha);
+        });
+
+        this.engineAccentTween = this.scene.tweens.add({
+            targets: this.engine.accentGlowParts,
+            alpha: TRAIN.engineGlowMaxAlpha,
+            duration: TRAIN.engineGlowPulseSeconds * 1000,
+            yoyo: true,
+            repeat: -1
+        });
     }
 
     getCameraLookAhead() {

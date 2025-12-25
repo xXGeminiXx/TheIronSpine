@@ -43,17 +43,23 @@ This is the consolidated ideas file for AI agents and contributors. Nothing here
 - Spine readout with tier pips per car
 - Merge candidate highlighting (pulsing border on adjacent same-color/tier)
 - Damage direction pings (edge arrows showing where damage came from)
-- Location: `src/systems/hud.js`
+- Optional range arcs toggle (Settings -> Range Arcs)
+- Location: `src/systems/hud.js`, `src/scenes/game-scene.js`, `src/scenes/settings-scene.js`, `src/core/settings.js`
 
 ### [DONE] Pickup Caravans
 - Groups of 3-5 pickups that spawn together
 - Location: `src/systems/spawner.js`
 
+### [DONE] Enemy Formation Waves
+- Skirmisher squads spawn as wedge/column/line/pincer formations
+- Formation label appended to wave HUD
+- Location: `src/systems/spawner.js`, `src/systems/hud.js`
+
 ---
 
 ## PRIORITY 1: Visual Identity (High Impact)
 
-### Car Damage States
+### [DONE] Car Damage States
 **Problem**: Cars look the same at full HP and 1 HP.
 
 **Solution**: Progressive visual damage.
@@ -64,42 +70,31 @@ This is the consolidated ideas file for AI agents and contributors. Nothing here
 | 50-25% | Cracks + occasional sparks |
 | 25-0% | Heavy damage + smoke emission |
 
-[SCAFFOLDING]
-```
-Location: src/core/train.js
-1. Store damage overlay graphics in car.damageOverlay
-2. Create updateDamageState(car) called when HP changes
-3. Scratches: thin darker rectangles at random angles
-4. Cracks: polylines from edge toward center
-5. Smoke: VfxSystem.update() spawns particles if HP < 25%
-```
+Location: `src/core/train.js`, `src/systems/vfx.js`, `src/scenes/game-scene.js`
 
-### Armor Plate Language Per Tier
+### [DONE] Armor Plate Language Per Tier
 Make tiers look distinct instantly.
 - Tier 1: Flat plates, few rivets
 - Tier 2: Layered plating, bevels
 - Tier 3: Reinforced edges, hazard stripes
 - Tier 4+: Insignia marks, glowing seams
 
-[SCAFFOLDING]
-```
-Location: src/core/train.js - car renderer
-Generate plates from rectangles + corner bevels.
-Use deterministic seed from (color, tier, index).
-```
+Location: `src/core/train.js`
 
-### Engine Accent Glow
+### [DONE] Engine Accent Glow
 Engine accent parts pulse with current weapon color.
 
-[SCAFFOLDING]
-```
-Location: src/core/train.js - setEngineAccentColor()
-Add pulsing alpha tween (0.7-1.0) when color changes.
-Add glow effect: larger scale shapes behind accents at lower alpha.
-```
+Location: `src/core/train.js`
 
-### Directional Muzzle Systems
+### [DONE] Directional Muzzle Systems
 Each car gets visible turret/barrel that recoils on fire.
+
+Location: `src/core/train.js`, `src/scenes/game-scene.js`
+
+### [DONE] Heat Vent Glow
+Vents glow and exhaust pulses scale with sustained firing.
+
+Location: `src/core/train.js`, `src/systems/combat.js`, `src/systems/vfx.js`
 
 ---
 
@@ -278,11 +273,15 @@ Rare pickup toggles mode for 8s:
 - Flexible: Tighter turns, more wobble
 - Rigid: Faster speed, worse turning
 
-### Unified Ground Shadow
+### [DONE] Unified Ground Shadow
 Single soft shadow under whole train, broken at couplings.
 
-### Headlight Scan Cone
+Location: `src/core/train.js`
+
+### [DONE] Headlight Scan Cone
 Engine casts subtle cone light sweeping with pointer direction.
+
+Location: `src/core/train.js`
 
 ---
 
@@ -291,11 +290,15 @@ Engine casts subtle cone light sweeping with pointer direction.
 ### Rail Spike Enemy
 Drops spike strip ahead. If engine crosses, couplings lock rigid for 1.5s.
 
-### Harpooner Enemy
+### [DONE] Harpooner Enemy
 Fires tether at mid-car, drags it sideways until destroyed.
 
-### Clamp Mine Layer
+Location: `src/systems/combat.js`, `src/systems/spawner.js`, `src/config.js`
+
+### [DONE] Clamp Mine Layer
 Drops mines that latch onto cars, apply turn penalty + countdown ring.
+
+Location: `src/systems/combat.js`, `src/systems/spawner.js`, `src/config.js`, `src/core/train.js`
 
 ### The Decoupler (Sniper)
 Targets couplings. Hit severs connection, car drifts away (can recollect).
