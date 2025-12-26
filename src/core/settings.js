@@ -1,4 +1,5 @@
 import { DEBUG, ENDLESS } from '../config.js';
+import { loadDifficulty } from './difficulty.js';
 
 export const SETTINGS = {
     debugEnabled: DEBUG.enabled,
@@ -10,7 +11,8 @@ export const SETTINGS = {
     showGrid: true,
     showRangeArcs: false,
     uiScaleIndex: 1,
-    endlessMode: ENDLESS.enabled
+    endlessMode: ENDLESS.enabled,
+    difficulty: loadDifficulty() // v1.4.0 Difficulty system
 };
 
 export const UI_SCALE_OPTIONS = Object.freeze([

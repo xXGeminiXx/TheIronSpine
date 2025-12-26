@@ -28,18 +28,23 @@ import {
     CAMERA,
     COLORS,
     COLOR_KEYS,
+    COMBO,
+    CRIT,
     DROP_PROTECTION,
     ENDLESS,
     EFFECTS,
     OVERDRIVE,
     PALETTE,
-    TRAIN
+    PROC_BOSS,
+    TRAIN,
+    WEATHER
 } from '../config.js';
 import { WorldManager } from '../art/world-gen.js';
 import { PickupManager, resetPickupIdCounter } from '../core/pickups.js';
 import { MergeManager } from '../core/merge.js';
 import { ReorderManager } from '../core/reorder.js';
 import { SETTINGS, getUiScale } from '../core/settings.js';
+import { getDifficultyModifiers } from '../core/difficulty.js';
 import { Train, resetSegmentIdCounter } from '../core/train.js';
 import { pickRandom } from '../core/math.js';
 import { InputController } from '../systems/input.js';
@@ -64,6 +69,19 @@ import {
 } from '../systems/endless-mode.js';
 import { addPauseOverlay } from '../systems/pause-overlay.js';
 import { getAchievementBonuses } from '../systems/achievements.js';
+import { TelegraphSystem } from '../systems/telegraph.js';
+import { ThreatIndicatorSystem } from '../systems/threat-indicator.js';
+import { ComboSystem } from '../systems/combo.js';
+import { CriticalHitSystem, spawnCritEffect } from '../systems/critical-hits.js';
+import { ScreenEffectsSystem } from '../systems/screen-effects.js';
+import { WeatherSystem } from '../systems/weather.js';
+import {
+    generateBoss,
+    spawnBoss,
+    updateBoss,
+    getBossDamageMultiplier,
+    checkWeakPointHit
+} from '../systems/boss-gen.js';
 
 export class GameScene extends Phaser.Scene {
     constructor() {
@@ -90,13 +108,17 @@ export class GameScene extends Phaser.Scene {
         this.bonusMultipliers = this.buildBonusMultipliers(this.achievementBonuses);
         this.overdriveChargeRate = this.bonusMultipliers.charge;
 
+        // v1.5.0 Apply difficulty modifiers to player stats
+        const difficulty = getDifficultyModifiers(SETTINGS.difficulty);
+        const finalHpMultiplier = this.bonusMultipliers.hp * difficulty.playerHp;
+
         this.train = new Train(this, startX, startY, {
             onCarDestroyed: (car, reason) => this.onCarDestroyed(car, reason),
             onEngineDestroyed: () => this.endRun('defeat'),
             isInvincible: () => SETTINGS.invincible
         });
         this.train.setSpeedMultiplier(this.bonusMultipliers.speed);
-        this.train.setHpMultiplier(this.bonusMultipliers.hp);
+        this.train.setHpMultiplier(finalHpMultiplier);
 
         this.inputController = new InputController(this);
         this.audio = new AudioManager(this);
@@ -132,12 +154,14 @@ export class GameScene extends Phaser.Scene {
                 createNewRecordEffect(this, wave);
             }
         });
+        // v1.5.0 Pass difficulty to spawner for modifiers
         this.spawner = new Spawner(
             this,
             this.train,
             this.pickupManager,
             this.combatSystem,
-            this.endlessMode
+            this.endlessMode,
+            SETTINGS.difficulty
         );
         this.mergeManager = new MergeManager(this, this.train, {
             onMergeCompleted: (...args) => this.onMergeCompleted(...args)
@@ -199,6 +223,36 @@ export class GameScene extends Phaser.Scene {
             ready: false
         };
 
+        // v1.4.0 NEW SYSTEMS
+        this.telegraph = new TelegraphSystem(this);
+        this.threatIndicators = new ThreatIndicatorSystem(this);
+        this.screenEffects = new ScreenEffectsSystem(this);
+
+        // v1.5.0 Apply difficulty modifier to combo window
+        const difficultyMods = getDifficultyModifiers(SETTINGS.difficulty);
+        const modifiedComboWindow = COMBO.comboWindow * difficultyMods.comboWindow;
+
+        this.combo = new ComboSystem({
+            onComboGain: (count, multiplier) => {
+                // Visual feedback for combo gains
+                if (count >= 5 && this.hud && typeof this.hud.showComboGain === 'function') {
+                    this.hud.showComboGain(count, multiplier);
+                }
+            },
+            onComboLost: () => {
+                // Combo lost - no action needed, HUD will update automatically
+            },
+            onMilestone: (kills, label) => {
+                this.showComboMilestone(label);
+            }
+        }, modifiedComboWindow);
+
+        this.critSystem = new CriticalHitSystem();
+
+        if (WEATHER.enabled) {
+            this.weather = new WeatherSystem(this);
+        }
+
         this.lastGridSetting = SETTINGS.showGrid;
 
         this.createInitialCar();
@@ -238,6 +292,25 @@ export class GameScene extends Phaser.Scene {
         }
         if (this.mobileControls) {
             this.mobileControls.destroy();
+        }
+        // v1.4.0 new systems cleanup
+        if (this.telegraph) {
+            this.telegraph.clear();
+        }
+        if (this.threatIndicators) {
+            this.threatIndicators.clear();
+        }
+        if (this.screenEffects) {
+            this.screenEffects.destroy();
+        }
+        if (this.combo) {
+            this.combo.clear();
+        }
+        if (this.critSystem) {
+            this.critSystem.clear();
+        }
+        if (this.weather) {
+            this.weather.destroy();
         }
     }
 
@@ -281,6 +354,29 @@ export class GameScene extends Phaser.Scene {
         this.spawner.update(deltaSeconds);
         this.updateOverdrive(deltaSeconds);
         this.updateDropProtectionUi();
+
+        // v1.4.0 new systems update
+        if (this.telegraph) {
+            this.telegraph.update(deltaSeconds);
+        }
+        if (this.threatIndicators) {
+            this.threatIndicators.update(this.combatSystem.enemies, this.cameras.main);
+        }
+        if (this.combo) {
+            this.combo.update(deltaSeconds);
+        }
+        if (this.weather) {
+            this.weather.update(deltaSeconds, this.cameras.main);
+        }
+        if (this.screenEffects) {
+            const hpPercent = this.train.engine.hp / this.train.engine.maxHp;
+            const comboMultiplier = this.combo ? this.combo.getMultiplier() : 1.0;
+            this.screenEffects.update({
+                hpPercent,
+                comboMultiplier,
+                deltaSeconds
+            });
+        }
         this.vfxSystem.update(deltaSeconds);
         const heatIntensity = typeof this.train.getHeatIntensity === 'function'
             ? this.train.getHeatIntensity()
@@ -445,6 +541,57 @@ export class GameScene extends Phaser.Scene {
         if (enemy) {
             this.vfxSystem.spawnEnemyPop({ x: enemy.x, y: enemy.y }, enemy.trim || PALETTE.uiText);
         }
+        // v1.4.0 Register kill with combo system
+        if (this.combo) {
+            this.combo.onKill();
+        }
+    }
+
+    showComboMilestone(label) {
+        if (!label) {
+            return;
+        }
+
+        const text = this.add.text(
+            this.cameras.main.width / 2,
+            this.cameras.main.height / 2 - 50,
+            label,
+            {
+                fontSize: '72px',
+                fontFamily: 'Trebuchet MS, Arial, sans-serif',
+                color: '#ffcc00',
+                stroke: '#000000',
+                strokeThickness: 8,
+                fontStyle: 'bold'
+            }
+        );
+        text.setOrigin(0.5);
+        text.setScrollFactor(0);
+        text.setDepth(150);
+        text.setAlpha(0);
+
+        this.audio.playMerge(); // Reuse merge sound for milestone
+
+        // Animate in and out
+        this.tweens.add({
+            targets: text,
+            alpha: 1,
+            scale: { from: 0.5, to: 1.2 },
+            duration: 300,
+            ease: 'Back.easeOut',
+            yoyo: false,
+            onComplete: () => {
+                this.tweens.add({
+                    targets: text,
+                    alpha: 0,
+                    scale: 1.5,
+                    y: text.y - 100,
+                    duration: 1200,
+                    ease: 'Cubic.easeOut',
+                    onComplete: () => text.destroy()
+                });
+            }
+        });
     }
 
     attemptReorder() {
@@ -693,7 +840,9 @@ export class GameScene extends Phaser.Scene {
             enemiesDestroyed: this.combatSystem.stats.enemiesDestroyed,
             pulseHits: this.combatSystem.stats.pulseHits,
             highestTier: this.train.stats.highestTier,
-            finalCarCount: this.train.getWeaponCars().length
+            finalCarCount: this.train.getWeaponCars().length,
+            highestCombo: this.combo ? this.combo.getHighestCombo() : 0, // v1.5.0
+            difficulty: SETTINGS.difficulty // v1.5.0
         };
 
         this.scene.start('EndScene', { result, stats });

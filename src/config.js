@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v1.3.0'
+    version: 'v1.5.1' // v1.5.1: Balance audit + endless scaling retune + big-number fixes
 });
 
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'
@@ -491,7 +491,7 @@ export const SPAWN = Object.freeze({
 });
 
 export const WAVES = Object.freeze({
-    totalToWin: 20,
+    totalToWin: 100, // v1.4.0 Extended to 100 waves
     baseEnemyCount: 6,
     initialDelaySeconds: 5,
     interWaveDelaySeconds: 2.8,
@@ -506,19 +506,24 @@ export const WAVES = Object.freeze({
     harpoonerIncreaseEvery: 6,
     minelayerIncreaseEvery: 7,
     rangerCountBase: 1,
-    rangerCountMax: 3,
+    rangerCountMax: 5, // v1.4.0 Increased for late game
     armoredCountBase: 1,
-    armoredCountMax: 2,
+    armoredCountMax: 3, // v1.4.0 Increased for late game
     harpoonerCountBase: 1,
-    harpoonerCountMax: 2,
+    harpoonerCountMax: 3, // v1.4.0 Increased for late game
     minelayerCountBase: 1,
-    minelayerCountMax: 2,
+    minelayerCountMax: 3, // v1.4.0 Increased for late game
     enemyCountStep: 4,
     enemyCountIncrease: 1,
-    maxExtraEnemies: 5,
-    hpScalePerWave: 0.07,
-    damageScalePerWave: 0.04,
-    speedScalePerWave: 0.008
+    maxExtraEnemies: 12, // v1.4.0 Increased for late game
+    // v1.4.0 Reduced scaling for 100 waves (smoother curve)
+    hpScalePerWave: 0.035, // Was 0.07, halved for 100 waves
+    damageScalePerWave: 0.02, // Was 0.04, halved for 100 waves
+    speedScalePerWave: 0.004, // Was 0.008, halved for 100 waves
+    // v1.4.0 Milestone waves for extra difficulty spikes
+    milestoneWaves: [25, 50, 75, 100],
+    milestoneHpBonus: 0.5, // +50% HP on milestone waves
+    milestoneDamageBonus: 0.3 // +30% damage on milestone waves
 });
 
 export const OVERDRIVE = Object.freeze({
@@ -571,18 +576,22 @@ export const ENDLESS = Object.freeze({
     // logarithmic = fast early growth, slows down (recommended)
     curveType: 'logarithmic',
 
-    // Scaling rates per wave (multipliers compound)
-    enemyHpScaleRate: 0.09,
-    enemyDamageScaleRate: 0.05,
-    enemySpeedScaleRate: 0.01,
+    // Scaling rates per wave (log-sqrt curve in endless-mode.js)
+    // Tuned so wave 100 ~4x HP, ~2.6x damage, ~1.2x speed.
+    enemyHpScaleRate: 0.15,
+    enemyDamageScaleRate: 0.08,
+    enemySpeedScaleRate: 0.012,
 
     // Caps to keep game playable even at wave 10000
     maxEnemiesAtOnce: 50,
     maxEnemyHpMultiplier: 1000,
     maxEnemyDamageMultiplier: 50,
 
+    // Clamp wave used for scaling (prevents overflow at extreme wave counts)
+    maxScalingWave: 1000000,
+
     // Milestone waves (celebrations)
-    milestones: [10, 25, 50, 100, 150, 200, 250, 500, 1000],
+    milestones: [10, 25, 50, 100, 150, 200, 250, 500, 1000, 2000, 5000, 10000, 25000, 50000, 100000],
 
     // Rubber-banding (help struggling players)
     rubberBandEnabled: true,
@@ -617,6 +626,154 @@ export const DROP_PROTECTION = Object.freeze({
 
     // Minimum cars to keep (0 = can drop all, 1 = keep at least one)
     minimumCars: 1
+});
+
+// ============================================================================
+// COMBO SYSTEM CONFIGURATION
+// ============================================================================
+// Rewards consecutive kills with damage multipliers
+// ============================================================================
+
+export const COMBO = Object.freeze({
+    // Time window to maintain combo (seconds)
+    comboWindow: 2.0,
+
+    // Multiplier tiers (minKills -> multiplier)
+    tiers: [
+        { minKills: 0, multiplier: 1.0, label: null },
+        { minKills: 5, multiplier: 1.2, label: 'ROLLING' },
+        { minKills: 10, multiplier: 1.5, label: 'UNSTOPPABLE' },
+        { minKills: 15, multiplier: 2.0, label: 'LEGENDARY' },
+        { minKills: 20, multiplier: 3.0, label: 'IRON SPINE' }
+    ],
+
+    // Visual settings
+    displayDuration: 3.0, // How long to show combo text (seconds)
+    pulseSpeed: 3.0 // Pulse animation speed
+});
+
+// ============================================================================
+// CRITICAL HIT CONFIGURATION
+// ============================================================================
+// Chance-based critical hits with visual feedback
+// ============================================================================
+
+export const CRIT = Object.freeze({
+    // Base crit chance and multiplier
+    baseCritChance: 0.05, // 5%
+    baseCritMultiplier: 2.0,
+
+    // Yellow has enhanced crit stats
+    yellowCritChance: 0.10, // 10%
+    yellowCritMultiplier: 2.5,
+
+    // Purple has moderate crit bonus
+    purpleCritChance: 0.07, // 7%
+    purpleCritMultiplier: 2.2,
+
+    // Visual settings
+    flashDuration: 0.2, // Crit flash duration (seconds)
+    textDuration: 0.8, // Floating damage text duration (seconds)
+    scaleMultiplier: 1.5 // Visual size increase for crit projectiles
+});
+
+// ============================================================================
+// WEATHER SYSTEM CONFIGURATION
+// ============================================================================
+// Procedural weather effects with gameplay modifiers
+// ============================================================================
+
+export const WEATHER = Object.freeze({
+    // Enable/disable weather system
+    enabled: true,
+
+    // Weather change interval (seconds)
+    changeIntervalMin: 60,
+    changeIntervalMax: 90,
+
+    // Lightning (storm only)
+    lightningIntervalMin: 5,
+    lightningIntervalMax: 12,
+    lightningDamage: 25,
+    lightningRadius: 60,
+
+    // Particle limits
+    maxParticles: 150,
+
+    // Weather rotation pattern
+    // Available: CLEAR, FOG, STORM, DUST, ASH
+    rotation: ['CLEAR', 'FOG', 'CLEAR', 'STORM', 'CLEAR', 'DUST', 'CLEAR', 'ASH']
+});
+
+// ============================================================================
+// TELEGRAPH SYSTEM CONFIGURATION
+// ============================================================================
+// Enemy attack warnings for fairness
+// ============================================================================
+
+export const TELEGRAPH = Object.freeze({
+    // Telegraph durations per enemy type (seconds)
+    rangerAimDuration: 0.4,
+    championChargeDuration: 0.6,
+    bossImpactDuration: 0.8,
+    armoredChargeDuration: 0.6,
+
+    // Visual settings
+    pulseSpeed: 6, // Telegraph pulse frequency
+    alphaBase: 0.6 // Base alpha for telegraph visuals
+});
+
+// ============================================================================
+// THREAT INDICATOR CONFIGURATION
+// ============================================================================
+// Off-screen enemy awareness
+// ============================================================================
+
+export const THREAT = Object.freeze({
+    // Max indicators shown
+    maxIndicators: 8,
+
+    // Edge margins
+    edgeMargin: 40,
+
+    // Arrow settings
+    arrowSize: 16,
+    pulseSpeed: 3,
+
+    // Threat priority scores
+    priority: {
+        boss: 100,
+        champion: 80,
+        ranger: 60,
+        harpooner: 55,
+        minelayer: 50,
+        armored: 40,
+        skirmisher: 20
+    }
+});
+
+// ============================================================================
+// PROCEDURAL BOSS CONFIGURATION
+// ============================================================================
+// Boss factory settings
+// ============================================================================
+
+export const PROC_BOSS = Object.freeze({
+    // Enable procedural bosses (false = use static boss from ENEMIES)
+    enabled: true,
+
+    // Difficulty scaling per wave
+    difficultyPerWave: 0.1,
+    maxDifficulty: 5,
+
+    // Phase timing
+    telegraphDurationMin: 0.6,
+    telegraphDurationMax: 1.5,
+    recoverDuration: 1.0,
+
+    // Weak point settings
+    weakPointDamageMultiplier: 2.0,
+    weakPointSize: 12
 });
 
 // ============================================================================

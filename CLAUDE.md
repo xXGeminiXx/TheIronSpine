@@ -6,7 +6,19 @@ Project-specific instructions for Claude Code. These override defaults when work
 
 **Live at:** https://xxgeminixx.github.io/TheIronSpine/
 
-Built in ~8 hours on 2025-12-21. Free, open-source, MIT licensed.
+**Development Timeline:**
+- v1.0.0: Built in ~8 hours on 2025-12-21
+- v1.3.0: Purple/Orange cars, visual systems (2025-12-25)
+- v1.4.0: Combat depth, weather, procedural bosses (2025-12-25 Night)
+- v1.5.0: 100 waves, difficulty tiers, UI systems (2025-12-25 Late Night)
+
+Free, open-source, MIT licensed.
+
+**IMPORTANT DEVELOPMENT PRACTICES:**
+- **Always update CHANGELOG.md** when adding features or fixing bugs
+- **Update achievements** when adding new mechanics or milestones
+- **Test integration** before committing major system changes
+- **Document new config** values with inline comments
 
 ## Project Summary
 
@@ -43,7 +55,7 @@ car.y += (leader.y - car.y) * followSpeed;
 ### Design Requirements (Non-Negotiable)
 ```
 Merge rule:   Exactly 2 adjacent same-color, same-tier → 1 higher tier. No exceptions.
-Run length:   20 waves (~2-5 minutes)
+Run length:   100 waves campaign (~20-40 min) + optional endless mode (1k-100k wave goals)
 Controls:     Pointer-following steering only. No manual aiming.
 Weapons:      Auto-fire. Player never controls when/where to shoot.
 Monetization: NONE. No paywalls, no energy systems, no premium currency.
@@ -284,18 +296,29 @@ update(time, delta) {
 
 ```
 Game:              Iron Spine
-Run length:        20 waves (target 2-5 minutes)
-Engine HP:         50
+Run length:        100 waves campaign (20-30 min Normal, 40+ min Hard)
+Endless goals:     Easy: 100 | Normal: 1,000 | Hard: 10,000 | Insane: 100,000
+Difficulty tiers:  Easy, Normal, Hard, Insane (4 tiers)
+  Easy:            -30% enemy HP, -25% damage, +30% pickups, +50% combo window, +20% player HP
+  Normal:          Baseline balance
+  Hard:            +40% enemy HP, +30% damage, -30% pickups, -25% combo window, -10% player HP
+  Insane:          +80% enemy HP, +60% damage, -50% pickups, -50% combo window, -20% player HP
+Engine HP:         55 (66 Easy, 55 Normal, 49.5 Hard, 44 Insane)
 Car HP (Tier 1):   20
 Car HP (Tier 2):   30
 Car HP (Tier 3):   40
-Max cars:          12 (+ engine = 13 total)
+Max cars:          Unlimited (no cap)
 Turn speed:        ~165°/second
 Base move speed:   100 units/second
 Boost:             +20% speed, 2 seconds, 5 second cooldown
 Follow speed:      0.15 (lerp factor)
 Physics:           Simple follow (NO Matter.js)
 Connectors:        Spherical couplings (visual only)
+Combo system:      2 second window (0.5-3 sec with difficulty), up to 3.0x damage at 20+ kills
+Crit system:       Yellow 10% / 2.5x, Purple 7% / 2.2x, Base 5% / 2.0x
+Weather:           5 types (Clear, Fog, Storm, Dust, Ash) with modifiers
+Bosses:            Procedurally generated every 10 waves (5-10 with difficulty)
+Achievements:      35+ achievements with gameplay bonuses, titles, 10 new in v1.5.0
 ```
 
 ## Debug Mode (Implemented)

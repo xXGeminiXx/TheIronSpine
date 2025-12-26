@@ -26,6 +26,8 @@ import {
     createAchievementPopup
 } from '../systems/achievements.js';
 import { formatNumber } from '../core/verylargenumbers.js';
+import { DIFFICULTY_GOALS } from '../systems/endless-mode.js';
+import { SETTINGS } from '../core/settings.js';
 
 export class EndScene extends Phaser.Scene {
     constructor() {
@@ -97,12 +99,49 @@ export class EndScene extends Phaser.Scene {
         // ------------------------------------------------------------------------
         // ACTION BUTTONS
         // ------------------------------------------------------------------------
-        // Retry button
-        const retryText = this.add.text(width * 0.5, height * 0.78, 'TAP OR CLICK TO RETRY', {
-            fontFamily: UI.fontFamily,
-            fontSize: `${UI.subtitleFontSize}px`,
-            color: PALETTE.warning
-        }).setOrigin(0.5);
+        // v1.5.0 Check if player completed 100-wave campaign and can continue to endless
+        const canContinueToEndless = (
+            result === 'victory' &&
+            stats.wavesCleared >= 100 &&
+            !SETTINGS.endlessMode
+        );
+
+        let retryText;
+        let continueText;
+
+        if (canContinueToEndless) {
+            // Show "CONTINUE TO ENDLESS" option
+            const difficulty = stats.difficulty || SETTINGS.difficulty || 'normal';
+            const goalWave = DIFFICULTY_GOALS[difficulty] || 1000;
+            const goalText = formatNumber(goalWave);
+
+            continueText = this.add.text(width * 0.5, height * 0.72,
+                `CONTINUE TO ENDLESS (Goal: Wave ${goalText})`, {
+                fontFamily: UI.fontFamily,
+                fontSize: `${UI.subtitleFontSize}px`,
+                color: '#00ff00'  // Green for continue
+            }).setOrigin(0.5);
+            continueText.setResolution(RENDER.textResolution);
+            this.makeInteractive(continueText, () => {
+                // Enable endless mode and restart
+                SETTINGS.endlessMode = true;
+                this.scene.start('GameScene');
+            });
+
+            // Retry button moved down
+            retryText = this.add.text(width * 0.5, height * 0.82, 'RETRY CAMPAIGN [SPACE]', {
+                fontFamily: UI.fontFamily,
+                fontSize: '18px',
+                color: PALETTE.uiText
+            }).setOrigin(0.5);
+        } else {
+            // Standard retry button
+            retryText = this.add.text(width * 0.5, height * 0.78, 'TAP OR CLICK TO RETRY', {
+                fontFamily: UI.fontFamily,
+                fontSize: `${UI.subtitleFontSize}px`,
+                color: PALETTE.warning
+            }).setOrigin(0.5);
+        }
         retryText.setResolution(RENDER.textResolution);
 
         // Settings button (bottom left)
@@ -126,9 +165,14 @@ export class EndScene extends Phaser.Scene {
         // ------------------------------------------------------------------------
         // INPUT HANDLING
         // ------------------------------------------------------------------------
-        // Click/tap to retry (but not if clicking settings/menu)
+        // Click/tap to retry (but not if clicking settings/menu/continue)
         this.input.once('pointerdown', (pointer, gameObjects) => {
-            if (gameObjects && (gameObjects.includes(settingsText) || gameObjects.includes(menuText))) {
+            const clickedButtons = gameObjects && (
+                gameObjects.includes(settingsText) ||
+                gameObjects.includes(menuText) ||
+                (continueText && gameObjects.includes(continueText))
+            );
+            if (clickedButtons) {
                 return;
             }
             this.scene.start('GameScene');

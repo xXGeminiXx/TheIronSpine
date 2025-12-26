@@ -100,75 +100,62 @@ Location: `src/core/train.js`, `src/systems/combat.js`, `src/systems/vfx.js`
 
 ## PRIORITY 2: Combat Fairness
 
-### Attack Telegraphs
-**Problem**: Enemies attack without warning. Deaths feel unfair.
+### [DONE] Attack Telegraphs
+**Implementation**: Full telegraph system with enemy-specific visuals (v1.4.0)
 
-| Enemy Type | Telegraph | Duration |
-|------------|-----------|----------|
-| Ranger | Red laser line toward target | 400ms |
-| Armored | Plating glows, charge line | 600ms |
-| Boss | Ground warning circle | 800ms |
-| Champion | Flash + speed indicator | 300ms |
+**Features**:
+- Ranger: Red laser line toward target (400ms)
+- Champion: Charging glow with speed indicator (600ms)
+- Boss: Ground warning circle (800ms)
+- Armored: Plating glow with charge line (600ms)
 
-[SCAFFOLDING]
-```
-Location: src/systems/combat.js
-1. Add enemy.telegraphType, enemy.telegraphTimer, enemy.telegraphGraphics
-2. In tryRangerFire(): set telegraph, create aim line, fire when timer expires
-3. Telegraph graphics: semi-transparent, pulsing alpha
-```
+Location: `src/systems/telegraph.js`
 
-### Threat Indicators
-Edge-of-screen arrows pointing to off-screen dangers.
+### [DONE] Threat Indicators
+**Implementation**: Off-screen enemy awareness system (v1.4.0)
 
-[SCAFFOLDING]
-```
-Location: New src/systems/threat-indicator.js
-1. For each off-screen enemy, calculate angle from screen center
-2. Position arrow on screen edge at that angle
-3. Use fixed pool of 8-10 arrows, priority by threat level
-```
+**Features**:
+- Edge-of-screen arrows pointing to off-screen enemies
+- Color-coded by threat level
+- Priority system (max 8 indicators)
+- Pulse animation for visibility
+
+Location: `src/systems/threat-indicator.js`
 
 ---
 
 ## PRIORITY 3: Procedural Showcase
 
-### Procedural Boss Factory
-Generate bosses from modular parts + behavior grammars.
+### [DONE] Procedural Boss Factory
+**Implementation**: Fully procedural boss generation system (v1.4.0)
 
-**Boss Anatomy**:
-- Core body (hexagon, octagon, irregular)
-- 1-3 weapon mounts
-- 0-2 weak points (extra damage)
-- Armor plates
+**Features**:
+- Modular boss anatomy (4 body types, variable weapon mounts)
+- Procedural weak points (2x damage)
+- Behavior state machine (TELEGRAPH -> EXECUTE -> RECOVER)
+- 4 behavior patterns: CHARGE, SWEEP, BURST, SUMMON
+- Difficulty scaling per wave
+- Unique visuals for each generated boss
 
-**Behaviors**: CHARGE, SWEEP, BURST, SUMMON, SHIELD
+Location: `src/systems/boss-gen.js`
 
-[SCAFFOLDING]
-```
-Location: New src/systems/boss-gen.js
-1. selectBodyType() - shape definition
-2. generateWeaponMounts(bodyType) - positions + types
-3. selectBehaviorPattern(difficulty) - behavior phases
-4. createBossSprite(scene, config) - assemble visuals
-Boss AI uses state machine: TELEGRAPH -> EXECUTE -> RECOVER
-```
+### [DONE] Weather/Biome System
+**Implementation**: Procedural weather with gameplay modifiers (v1.4.0)
 
-### Weather/Biome System
-| Weather | Visual | Gameplay |
-|---------|--------|----------|
-| Clear | Normal | None |
-| Fog | Haze overlay | -20% enemy detection |
-| Storm | Rain, lightning | Occasional strikes |
-| Dust | Brown fog | Reduced pickup visibility |
+**Weather Types**:
+- Clear: Normal conditions
+- Fog: Haze overlay, -20% enemy detection
+- Storm: Rain + lightning strikes (area damage)
+- Dust: Brown fog, reduced pickup visibility
+- Ash: Dark particles, ominous atmosphere
 
-[SCAFFOLDING]
-```
-Location: New src/systems/weather.js
-Randomly select weather every 60-90s.
-Weather overlay at high depth, scrollFactor 0.
-Export getWeatherModifiers() for combat system.
-```
+**Features**:
+- Weather cycles every 60-90 seconds
+- Procedural particles (rain, fog, dust, ash)
+- Lightning strikes during storms (25 damage, 60 radius)
+- Gameplay modifiers exported for spawn/combat systems
+
+Location: `src/systems/weather.js`
 
 ### Cinematic Boss Arrival
 - Screen desaturates
@@ -216,20 +203,29 @@ Replace Math.random() in spawner.js, world-gen.js, boss-gen.js.
 
 ## PRIORITY 5: Combat Depth
 
-### Combo System
-Kill within 2s = combo continues. Multiplier: 1x -> 1.2x -> 1.5x -> 2x -> 3x
+### [DONE] Combo System
+**Implementation**: Kill chain system with multipliers (v1.4.0)
 
-[SCAFFOLDING]
-```
-Location: src/systems/combat.js
-Add combo state: { count, multiplier, timer, maxTimer: 2 }
-In destroyEnemyAtIndex(): increment, reset timer
-In update(): decrement timer, reset combo if expired
-Apply multiplier in applyProjectileDamage()
-```
+**Features**:
+- 2 second combo window
+- 5 multiplier tiers (1.0x -> 1.2x -> 1.5x -> 2.0x -> 3.0x)
+- Vocal callouts: ROLLING, UNSTOPPABLE, LEGENDARY, IRON SPINE
+- Visual feedback and HUD integration
+- Stats tracking (highest combo)
 
-### Critical Hits
-5% crit chance, 2x damage. Yellow: 2.5x. Visual: larger projectile, damage popup.
+Location: `src/systems/combo.js`
+
+### [DONE] Critical Hits
+**Implementation**: Chance-based critical hit system (v1.4.0)
+
+**Features**:
+- Base: 5% chance, 2.0x damage
+- Yellow: 10% chance, 2.5x multiplier (precision theme)
+- Purple: 7% chance, 2.2x multiplier
+- Visual effects: bright flash, impact ring, floating damage text
+- Per-color crit tracking
+
+Location: `src/systems/critical-hits.js`
 
 ---
 
@@ -313,13 +309,19 @@ Enemy train with its own cars. Mirror match, ramming steals cars.
 ### Dynamic Music
 Layers: base drum, bass (combat), melody (high intensity), danger (low HP).
 
-### Screen Effects
-| Trigger | Effect |
-|---------|--------|
-| Low HP | Red vignette pulse |
-| High Combo | Gold edge glow |
-| Boss Spawn | Color desaturation |
-| Victory | White flash |
+[FUTURE] Requires Web Audio API synthesis or procedural audio generation
+
+### [DONE] Screen Effects
+**Implementation**: Dynamic screen effects system (v1.4.0)
+
+**Features**:
+- Low HP: Red vignette pulse (intensity scales with damage)
+- High Combo: Gold edge glow (scales with multiplier)
+- Boss Spawn: Color desaturation effect
+- Victory: White flash fade
+- Damage Taken: Screen flash
+
+Location: `src/systems/screen-effects.js`
 
 ### War Report End Screen
 Military after-action sheet: kills by color, highest tier, tension time, choices.

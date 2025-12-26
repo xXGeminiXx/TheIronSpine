@@ -3,14 +3,19 @@
  *
  * Allows players to toggle visual effects and accessibility options.
  * Settings persist only for the current session (no localStorage).
+ *
+ * v1.5.0: Integrated Scrollbar for overflow handling
  */
 import { PALETTE, UI, RENDER } from '../config.js';
 import {
     SETTINGS,
     toggleSetting,
     cycleUiScale,
-    getUiScaleLabel
+    getUiScaleLabel,
+    setSetting
 } from '../core/settings.js';
+import { Scrollbar } from '../ui/scrollbar.js';
+import { getAllDifficulties, saveDifficulty } from '../core/difficulty.js';
 
 export class SettingsScene extends Phaser.Scene {
     constructor() {
@@ -22,7 +27,7 @@ export class SettingsScene extends Phaser.Scene {
         this.add.rectangle(0, 0, width, height, Phaser.Display.Color.HexStringToColor(PALETTE.background).color)
             .setOrigin(0, 0);
 
-        this.titleText = this.add.text(width * 0.5, height * 0.14, 'SETTINGS', {
+        this.titleText = this.add.text(width * 0.5, height * 0.12, 'SETTINGS', {
             fontFamily: UI.fontFamily,
             fontSize: `${UI.titleFontSize}px`,
             color: PALETTE.uiText,
@@ -31,7 +36,14 @@ export class SettingsScene extends Phaser.Scene {
         }).setOrigin(0.5);
         this.titleText.setResolution(RENDER.textResolution);
 
+        // v1.5.0 Scrollable settings area
+        const scrollX = width * 0.15;
+        const scrollY = height * 0.2;
+        const scrollWidth = width * 0.7;
+        const scrollHeight = height * 0.6;
+
         const toggles = [
+            { key: 'difficulty', label: 'Difficulty', desc: 'Easy / Normal / Hard', type: 'difficulty' },
             { key: 'uiScale', label: 'UI Scale', desc: 'Small / Medium / Large', type: 'cycle' },
             { key: 'endlessMode', label: 'Endless Mode', desc: 'Infinite waves (no win)' },
             { key: 'screenShake', label: 'Screen Shake', desc: 'Camera effects on hits' },
@@ -43,14 +55,26 @@ export class SettingsScene extends Phaser.Scene {
 
         this.toggleTexts = [];
         this.descTexts = [];
-        this.toggleCount = toggles.length;
-        this.startY = height * 0.28;
-        this.stepY = (height * 0.76 - this.startY)
-            / Math.max(1, this.toggleCount - 1);
 
+        // Calculate content height
+        const spacing = 60; // Space between each toggle
+        const contentHeight = toggles.length * spacing;
+
+        // Create scrollbar
+        this.scrollbar = new Scrollbar(this, {
+            x: scrollX,
+            y: scrollY,
+            width: scrollWidth,
+            height: scrollHeight,
+            contentHeight: contentHeight
+        });
+
+        // Create toggles inside scrollable content
+        let currentY = 0;
         toggles.forEach((toggle, index) => {
-            const y = this.startY + index * this.stepY;
-            const text = this.add.text(width * 0.5, y, '', {
+            const y = currentY;
+
+            const text = this.add.text(scrollWidth * 0.5, y, '', {
                 fontFamily: UI.fontFamily,
                 fontSize: `${UI.subtitleFontSize}px`,
                 color: PALETTE.warning
@@ -58,7 +82,7 @@ export class SettingsScene extends Phaser.Scene {
             text.setResolution(RENDER.textResolution);
 
             // Add description text below each toggle
-            const descText = this.add.text(width * 0.5, y + 22, toggle.desc, {
+            const descText = this.add.text(scrollWidth * 0.5, y + 22, toggle.desc, {
                 fontFamily: UI.fontFamily,
                 fontSize: '14px',
                 color: '#888888'
@@ -69,6 +93,8 @@ export class SettingsScene extends Phaser.Scene {
             text.on('pointerdown', () => {
                 if (toggle.type === 'cycle') {
                     cycleUiScale();
+                } else if (toggle.type === 'difficulty') {
+                    this.cycleDifficulty();
                 } else {
                     toggleSetting(toggle.key);
                 }
@@ -78,9 +104,16 @@ export class SettingsScene extends Phaser.Scene {
             this.updateToggleText(text, toggle);
             this.toggleTexts.push({ text, toggle });
             this.descTexts.push(descText);
+
+            // Add to scrollbar content
+            this.scrollbar.addContent(text);
+            this.scrollbar.addContent(descText);
+
+            currentY += spacing;
         });
 
-        this.backText = this.add.text(width * 0.5, height * 0.8, 'BACK', {
+        // Back button - FIXED at bottom, outside scrollable area
+        this.backText = this.add.text(width * 0.5, height * 0.88, 'BACK', {
             fontFamily: UI.fontFamily,
             fontSize: `${UI.subtitleFontSize}px`,
             color: PALETTE.uiText
@@ -100,15 +133,31 @@ export class SettingsScene extends Phaser.Scene {
             this.input.keyboard.on('keydown', this.keyHandler);
         }
 
-        this.layout();
-        this.resizeHandler = () => this.layout();
-        this.scale.on('resize', this.resizeHandler);
         this.events.once('shutdown', () => {
-            this.scale.off('resize', this.resizeHandler);
+            if (this.scrollbar) {
+                this.scrollbar.destroy();
+            }
             if (this.input.keyboard && this.keyHandler) {
                 this.input.keyboard.off('keydown', this.keyHandler);
             }
         });
+    }
+
+    update() {
+        if (this.scrollbar) {
+            this.scrollbar.update();
+        }
+    }
+
+    cycleDifficulty() {
+        const difficulties = getAllDifficulties();
+        const current = SETTINGS.difficulty;
+        const currentIndex = difficulties.findIndex(d => d.id === current);
+        const nextIndex = (currentIndex + 1) % difficulties.length;
+        const next = difficulties[nextIndex];
+
+        setSetting('difficulty', next.id);
+        saveDifficulty(next.id);
     }
 
     updateToggleText(text, toggle) {
@@ -118,24 +167,16 @@ export class SettingsScene extends Phaser.Scene {
             return;
         }
 
+        if (toggle.type === 'difficulty') {
+            const difficulties = getAllDifficulties();
+            const current = SETTINGS.difficulty;
+            const info = difficulties.find(d => d.id === current);
+            const label = info ? info.name.toUpperCase() : 'NORMAL';
+            text.setText(`${toggle.label}: ${label}`);
+            return;
+        }
+
         const value = SETTINGS[toggle.key] ? 'ON' : 'OFF';
         text.setText(`${toggle.label}: ${value}`);
-    }
-
-    layout() {
-        const { width, height } = this.scale;
-        this.titleText.setPosition(width * 0.5, height * 0.14);
-        this.startY = height * 0.28;
-        this.stepY = (height * 0.76 - this.startY)
-            / Math.max(1, this.toggleCount - 1);
-        this.toggleTexts.forEach((entry, index) => {
-            const y = this.startY + index * this.stepY;
-            entry.text.setPosition(width * 0.5, y);
-        });
-        this.descTexts.forEach((descText, index) => {
-            const y = this.startY + index * this.stepY + 22;
-            descText.setPosition(width * 0.5, y);
-        });
-        this.backText.setPosition(width * 0.5, height * 0.88);
     }
 }

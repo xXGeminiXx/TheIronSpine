@@ -89,6 +89,25 @@ const SUFFIXES = [
 // After Centillion, we switch to pure scientific notation
 // (because nobody can pronounce "Uncentillion" anyway)
 
+const LARGE_INTEGER_DIGITS = 15;
+
+function isIntegerString(value) {
+    return /^-?\d+$/.test(value);
+}
+
+function isLargeIntegerString(value) {
+    const trimmed = value.trim();
+    if (!isIntegerString(trimmed)) {
+        return false;
+    }
+    const digits = trimmed.startsWith('-') ? trimmed.slice(1) : trimmed;
+    return digits.length > LARGE_INTEGER_DIGITS;
+}
+
+function isBigNumLike(value) {
+    return Boolean(value && typeof value === 'object' && typeof value.value === 'bigint');
+}
+
 // ----------------------------------------------------------------------------
 // CORE FORMATTING FUNCTIONS
 // ----------------------------------------------------------------------------
@@ -108,9 +127,14 @@ export function formatNumber(value, decimals = 2) {
         return '0';
     }
 
-    // Convert BigInt to number if small enough, else use BigNum
+    if (isBigNumLike(value)) {
+        return formatBigInt(value.value, decimals);
+    }
+
+    // Convert BigInt to number if small enough, else use BigInt formatting
     if (typeof value === 'bigint') {
-        if (value < Number.MAX_SAFE_INTEGER) {
+        if (value >= -BigInt(Number.MAX_SAFE_INTEGER)
+            && value <= BigInt(Number.MAX_SAFE_INTEGER)) {
             value = Number(value);
         } else {
             return formatBigInt(value, decimals);
@@ -119,7 +143,11 @@ export function formatNumber(value, decimals = 2) {
 
     // Parse string numbers
     if (typeof value === 'string') {
-        value = parseFloat(value);
+        const trimmed = value.trim();
+        if (isLargeIntegerString(trimmed)) {
+            return formatBigInt(BigInt(trimmed), decimals);
+        }
+        value = parseFloat(trimmed);
     }
 
     // Handle NaN and Infinity
@@ -168,7 +196,9 @@ export function formatNumber(value, decimals = 2) {
  * @returns {string} Formatted string
  */
 function formatBigInt(value, decimals = 2) {
-    const str = value.toString();
+    const isNegative = value < 0n;
+    const absValue = isNegative ? -value : value;
+    const str = absValue.toString();
     const len = str.length;
 
     // Calculate tier (groups of 3 digits)
@@ -178,14 +208,22 @@ function formatBigInt(value, decimals = 2) {
         // Extract significant digits
         const significantDigits = tier * 3;
         const intPart = str.slice(0, len - significantDigits);
-        const decPart = str.slice(len - significantDigits, len - significantDigits + decimals);
+        const decPart = str
+            .slice(len - significantDigits, len - significantDigits + decimals)
+            .padEnd(decimals, '0');
 
-        return `${intPart}.${decPart}${SUFFIXES[tier]}`;
+        const formatted = decimals > 0
+            ? `${intPart}.${decPart}${SUFFIXES[tier]}`
+            : `${intPart}${SUFFIXES[tier]}`;
+        return isNegative ? `-${formatted}` : formatted;
     }
 
     // Scientific notation for truly cosmic numbers
-    const mantissa = str[0] + '.' + str.slice(1, decimals + 1);
-    return `${mantissa}e${len - 1}`;
+    const mantissa = decimals > 0
+        ? str[0] + '.' + str.slice(1, decimals + 1)
+        : str[0];
+    const formatted = `${mantissa}e${len - 1}`;
+    return isNegative ? `-${formatted}` : formatted;
 }
 
 /**
@@ -265,6 +303,28 @@ export function formatPercent(value, isDecimal = false) {
     }
 
     return value.toFixed(2) + '%';
+}
+
+export function toNumberSafe(value, fallback = 0) {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : fallback;
+    }
+
+    if (typeof value === 'bigint') {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : fallback;
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (isLargeIntegerString(trimmed)) {
+            return Number.MAX_SAFE_INTEGER;
+        }
+        const parsed = parseFloat(trimmed);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    return fallback;
 }
 
 // ----------------------------------------------------------------------------

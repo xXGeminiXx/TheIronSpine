@@ -39,6 +39,120 @@ When updating this game, follow these conventions:
 
 ## [Unreleased]
 
+---
+
+## [1.5.0] - 2025-12-25 (Late Night Expansion)
+
+### Major Features
+
+#### Game Length Extension
+- **100 Wave Campaign**: Extended from 20 to 100 waves for epic runs
+  - Halved scaling rates for smoother progression (HP: 0.035/wave, Damage: 0.02/wave)
+  - Milestone waves at 25, 50, 75, 100 with +50% HP / +30% damage spikes
+  - Late game enemy caps increased (Rangers: 5, Armored/Harpooner/Minelayer: 3)
+  - Max extra enemies increased to 12 for intense late-game combat
+  - Estimated runtime: 20-30min (Normal), 40+ min (Hard)
+
+#### Difficulty System (FULLY INTEGRATED)
+- **4 Difficulty Tiers**: Easy, Normal, Hard, Insane
+  - **Easy**: -30% enemy HP, -25% damage, +30% pickups, +50% combo window, +20% player HP
+  - **Normal**: Baseline (current balance)
+  - **Hard**: +40% enemy HP, +30% damage, -30% pickups, -25% combo window, -10% player HP
+  - **Insane**: +80% enemy HP, +60% damage, -50% pickups, -50% combo window, -20% player HP
+  - Difficulty saved to localStorage, persists across sessions
+  - **Fully integrated**: Modifiers applied to spawner, combat, combo system, player stats
+  - Selectable in Settings menu with cycle button
+
+#### Enemy Behavior Improvements
+- **Off-Screen Teleport**: Enemies now teleport back when 800+ units off-screen
+  - Prevents enemies from wandering forever
+  - Teleports to opposite edge, maintains pressure
+  - Always moves toward player after teleporting
+
+#### UI Systems
+- **Reusable Scrollbar Module**: Created `src/ui/scrollbar.js`
+  - Mouse wheel scrolling
+  - Touch drag scrolling
+  - Draggable scrollbar thumb with hover effects
+  - Auto-hide when content fits
+  - Smooth momentum scrolling
+  - **INTEGRATED into Settings menu** - no more floating back button issue
+  - Difficulty selector added to Settings menu
+
+#### Endless Mode Extensions
+- **Continue to Endless Option**: After completing 100-wave campaign, players can continue to endless mode
+  - Displays difficulty-based goal (Normal: 1,000 waves, Hard: 10,000, Insane: 100,000)
+  - New "CONTINUE TO ENDLESS" button on victory screen
+  - "RETRY CAMPAIGN" option still available
+- **Difficulty-Based Goals**: Endless mode now has tier-specific goals
+  - Easy: 100 waves (campaign completion)
+  - Normal: 1,000 waves
+  - Hard: 10,000 waves
+  - Insane: 100,000 waves
+- **Extended Milestones**: New celebration milestones at 1000, 2500, 5000, 10000, 25000, 50000, 100000
+
+#### Achievement System Expansion
+- **10 New Achievements** added for v1.5.0 features:
+  - **Combo Master**: Highest kill combo (5/10/15/20) → Fire rate bonuses
+  - **Century**: Complete 100 waves → +10% damage
+  - **Iron Will**: Win on Hard difficulty → +5% damage
+  - **Iron Legend**: Complete 100 waves on Hard → "The Iron Legend" title
+  - **Absolute Mastery**: Win on Insane → +10% damage
+  - **Iron God**: Complete 100 waves on Insane → "The Iron God" title
+  - **Millennium**: Reach wave 1,000 (Normal goal) → +15% damage
+  - **Decamillennium**: Reach wave 10,000 (Hard goal) → "The Eternal" title
+  - **Centimillennium**: Reach wave 100,000 (Insane goal) → "The Transcendent" title
+- **Updated Wave Record** achievement thresholds to 25/50/75/100 (was 10/20/25/50)
+
+#### Threat Indicator Fix
+- **Arrow Direction Corrected**: Arrows now point INWARD toward enemies (not outward)
+  - Fixed rotation calculation (angle - PI/2)
+  - Proper edge-clamping for screen boundaries
+  - Better situational awareness
+
+### Files Added
+- `src/core/difficulty.js` - Difficulty tier system with modifiers
+- `src/ui/scrollbar.js` - Reusable scrollable container
+
+### Files Modified
+- `src/config.js` - Extended WAVES to 100, added milestone config, version bump to v1.5.0
+- `src/core/settings.js` - Added difficulty setting with localStorage persistence
+- `src/core/difficulty.js` - **UPDATED** - Added Insane difficulty tier
+- `src/systems/combat.js` - Added enemy teleport logic in updateMeleeEnemy()
+- `src/systems/spawner.js` - **UPDATED** - Integrated difficulty modifiers, milestone bonuses
+- `src/systems/combo.js` - **UPDATED** - Made combo window configurable for difficulty
+- `src/systems/endless-mode.js` - **UPDATED** - Added difficulty-based goals, extended milestones
+- `src/systems/achievements.js` - **UPDATED** - Added 10 new achievements, updated thresholds
+- `src/scenes/game-scene.js` - **UPDATED** - Applied difficulty to spawner/combo/player HP, added highestCombo tracking
+- `src/scenes/settings-scene.js` - **UPDATED** - Integrated scrollbar, added difficulty selector
+- `src/scenes/end-scene.js` - **UPDATED** - Added "Continue to Endless" option after 100-wave victory
+- `src/systems/threat-indicator.js` - Fixed arrow rotation (inward pointing)
+- `CLAUDE.md` - Updated development practices, game values, timeline
+- `CHANGELOG.md` - Comprehensive v1.5.0 documentation
+- `agents.md` - Updated current state, priorities, development practices
+
+### Configuration
+- `WAVES.totalToWin` - Now 100 waves (was 20)
+- `WAVES.milestoneWaves` - [25, 50, 75, 100]
+- `WAVES.milestoneHpBonus` - 0.5 (+50% on milestones)
+- `WAVES.milestoneDamageBonus` - 0.3 (+30% on milestones)
+- `SETTINGS.difficulty` - 'easy', 'normal', 'hard', or 'insane'
+- `DIFFICULTY_GOALS` - Endless mode goals: {easy: 100, normal: 1000, hard: 10000, insane: 100000}
+- `ENDLESS.milestones` - Extended to [10, 25, 50, 100, 150, 200, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000]
+
+### Balance Changes
+- Enemy spawn caps increased for late game viability
+- Scaling rates halved to accommodate 5x longer campaigns
+- Difficulty modifiers provide meaningful choice without breaking balance
+- Insane difficulty added for extreme challenge seekers
+- Combo window adjusts based on difficulty (0.5x to 1.5x base)
+- Pickup spawn rates scale with difficulty (-50% to +30%)
+- Player HP scales with difficulty (-20% to +20%)
+
+---
+
+## [Unreleased - Old Content]
+
 ### Added
 - **Purple Sniper Car**: Long-range precision weapon with extended range (450-550 vs 240-380)
   - Penetration mechanic: Projectiles pierce through 1-3 enemies based on tier
@@ -96,6 +210,72 @@ When updating this game, follow these conventions:
 - Orange fire pulse animation uses corona scaling and flame flickering
 - Harpoon tether uses a wind-up -> drag loop with per-car lateral pull
 - Clamp mines can be shot off before they expire
+
+---
+
+## [1.4.0] - 2025-12-25 (Christmas Night Update)
+
+### Major Features
+
+#### Combat Fairness Systems
+- **Attack Telegraphs**: Enemy attacks now show visual warnings before firing
+  - Ranger: Red laser aim line (400ms warning)
+  - Champion: Charging aura with speed indicators (600ms warning)
+  - Boss: Ground warning circle at impact point (800ms warning)
+  - Armored: Plating glow with charge particles (600ms warning)
+- **Threat Indicators**: Off-screen enemy awareness system
+  - Edge-of-screen arrows pointing to dangerous enemies
+  - Color-coded by threat level (gray=skirmisher, gold=champion, orange=boss)
+  - Priority system shows 8 most dangerous threats
+  - Pulse animation for visibility
+
+#### Combat Depth Systems
+- **Combo System**: Kill chains reward skilled play
+  - 2 second combo window - keep killing to maintain
+  - 5 multiplier tiers (1.0x -> 1.2x -> 1.5x -> 2.0x -> 3.0x damage)
+  - Milestone callouts: ROLLING (5), UNSTOPPABLE (10), LEGENDARY (15), IRON SPINE (20+)
+  - Applies to ALL damage sources (weapons + pulse)
+  - HUD displays current combo count and multiplier
+- **Critical Hits**: Chance-based damage spikes
+  - Base: 5% crit chance, 2.0x damage multiplier
+  - Yellow (Precision): 10% crit chance, 2.5x multiplier
+  - Purple (Sniper): 7% crit chance, 2.2x multiplier
+  - Visual effects: bright flash, impact ring, floating damage numbers
+
+#### Procedural Systems
+- **Weather/Biome System**: Dynamic atmospheric variety
+  - 5 weather types: Clear, Fog, Storm, Dust, Ash
+  - Procedural particles (rain, fog, dust, ash)
+  - Gameplay modifiers (Fog: -20% enemy detection, Storm: lightning strikes)
+  - Weather cycles every 60-90 seconds
+- **Procedural Boss Factory**: Unique bosses every wave
+  - 4 body types (hexagon, octagon, star, fortress)
+  - Modular anatomy: 1-3 weapon mounts, 0-2 weak points
+  - 4 behavior patterns: CHARGE, SWEEP, BURST, SUMMON
+  - Weak points take 2x damage
+
+#### Visual Polish
+- **Screen Effects System**: Reactive cinematic overlays
+  - Low HP: Red vignette pulse
+  - High Combo: Gold edge glow
+  - Boss Spawn: Color desaturation
+  - Victory: White flash fade
+
+### Configuration
+All new systems configurable via `src/config.js`:
+- COMBO, CRIT, WEATHER, TELEGRAPH, THREAT, PROC_BOSS
+
+### Files Added
+- `src/systems/telegraph.js`, `threat-indicator.js`, `combo.js`, `critical-hits.js`
+- `src/systems/screen-effects.js`, `weather.js`, `boss-gen.js`
+- `INTEGRATION-GUIDE.md`
+
+### Files Modified
+- `src/config.js` - Added 6 new config sections
+- `src/scenes/game-scene.js` - Integrated all new systems
+- `src/systems/combat.js` - Combo/crit damage, boss updates
+- `src/systems/spawner.js` - Weather modifiers, procedural bosses
+- `src/systems/hud.js` - Combo and weather display
 
 ---
 
@@ -213,6 +393,8 @@ When updating this game, follow these conventions:
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.5.0 | 2025-12-25 | 100 waves, 4 difficulties (+ Insane), endless goals, 10 new achievements, scrollbar, Continue option |
+| v1.4.0 | 2025-12-25 | Telegraphs, combos, crits, weather, procedural bosses, screen effects |
 | v1.3.0 | 2025-12-25 | Parallax world, unique projectiles, tutorial revamp, HUD fixes |
 | v1.2.1 | 2025-12-24 | Pause/drop protection wired, endless HUD, easier early game |
 | v1.2.0 | 2025-12-24 | Endless mode, achievements, tutorial, reordering |

@@ -1,5 +1,7 @@
-import { COLOR_KEYS, SPAWN, WAVES } from '../config.js';
+import { COLOR_KEYS, PROC_BOSS, SPAWN, WAVES } from '../config.js';
 import { pickRandom, randomBetween, randomInt, normalizeVector } from '../core/math.js';
+import { generateBoss, spawnBoss, updateBoss } from './boss-gen.js';
+import { getDifficultyModifiers } from '../core/difficulty.js';
 
 /**
  * Picks a random element from array based on weights.
@@ -22,12 +24,14 @@ function weightedRandom(array, weights) {
 }
 
 export class Spawner {
-    constructor(scene, train, pickupManager, combatSystem, endlessMode = null) {
+    constructor(scene, train, pickupManager, combatSystem, endlessMode = null, difficulty = 'normal') {
         this.scene = scene;
         this.train = train;
         this.pickupManager = pickupManager;
         this.combatSystem = combatSystem;
         this.endlessMode = endlessMode;
+        this.difficulty = difficulty; // v1.5.0 Difficulty tier
+        this.difficultyMods = getDifficultyModifiers(difficulty); // v1.5.0
         this.pickupTimer = randomBetween(
             SPAWN.pickupSpawnMinSeconds,
             SPAWN.pickupSpawnMaxSeconds
@@ -79,7 +83,11 @@ export class Spawner {
             1 - (waveNumber - 1) * SPAWN.pickupCountScalePerWave
         );
         const tierScale = this.getTierPickupScale();
-        const timeScale = waveScale * tierScale;
+
+        // v1.5.0 Apply difficulty modifier (higher pickupSpawnRate = MORE pickups = FASTER spawns)
+        // So we DIVIDE by the modifier to make pickups spawn faster on Easy, slower on Hard
+        const difficultyScale = 1 / this.difficultyMods.pickupSpawnRate;
+        const timeScale = waveScale * tierScale * difficultyScale;
 
         const countMin = Math.max(1, Math.round(SPAWN.pickupCountMin * countScale));
         const countMax = Math.max(countMin, Math.round(SPAWN.pickupCountMax * countScale));
@@ -381,7 +389,33 @@ export class Spawner {
         );
         const spawnPoint = this.getEdgeSpawnPoint(camera, forward, padding);
         const scale = this.getWaveScale(this.waveNumber);
-        this.combatSystem.spawnEnemy(type, spawnPoint, scale);
+
+        // v1.4.0 Procedural boss generation
+        if (type === 'boss' && PROC_BOSS.enabled) {
+            const difficulty = Math.min(
+                Math.floor(this.waveNumber * PROC_BOSS.difficultyPerWave),
+                PROC_BOSS.maxDifficulty
+            );
+            const bossConfig = generateBoss(difficulty);
+            const boss = spawnBoss(this.scene, bossConfig, spawnPoint);
+
+            // Register as special enemy with combat system
+            this.combatSystem.enemies.push({
+                ...boss,
+                type: 'boss',
+                isProcedural: true,
+                baseColor: boss.config.coreColor,
+                trim: boss.config.trimColor
+            });
+
+            // Show boss intro if screen effects available
+            if (this.scene.screenEffects) {
+                this.scene.screenEffects.desaturate(1000, 0.6);
+            }
+        } else {
+            // Standard static enemy
+            this.combatSystem.spawnEnemy(type, spawnPoint, scale);
+        }
     }
 
     getForwardVector() {
@@ -394,7 +428,15 @@ export class Spawner {
     getDynamicPadding(basePadding, perCarPadding) {
         const carCount = this.train ? this.train.cars.length : 0;
         const extra = Math.min(SPAWN.maxExtraPadding, carCount * perCarPadding);
-        return basePadding + extra;
+        let padding = basePadding + extra;
+
+        // v1.4.0 Apply weather modifiers
+        if (this.scene.weather) {
+            const weatherMods = this.scene.weather.getModifiers();
+            padding *= weatherMods.enemyDetectionRange;
+        }
+
+        return padding;
     }
 
     getTierPickupScale() {
@@ -537,20 +579,39 @@ export class Spawner {
     }
 
     getWaveScale(waveNumber) {
+        let baseScale;
+
         if (this.isEndless()) {
             const config = this.endlessMode.getWaveConfig(waveNumber);
-            return {
+            baseScale = {
                 hp: config.hpMultiplier,
                 damage: config.damageMultiplier,
                 speed: config.speedMultiplier
             };
+        } else {
+            const step = Math.max(0, waveNumber - 1);
+
+            // v1.5.0 Milestone wave bonuses
+            let milestoneBonus = { hp: 0, damage: 0 };
+            if (WAVES.milestoneWaves && WAVES.milestoneWaves.includes(waveNumber)) {
+                milestoneBonus = {
+                    hp: WAVES.milestoneHpBonus || 0,
+                    damage: WAVES.milestoneDamageBonus || 0
+                };
+            }
+
+            baseScale = {
+                hp: 1 + step * WAVES.hpScalePerWave + milestoneBonus.hp,
+                damage: 1 + step * WAVES.damageScalePerWave + milestoneBonus.damage,
+                speed: 1 + step * WAVES.speedScalePerWave
+            };
         }
 
-        const step = Math.max(0, waveNumber - 1);
+        // v1.5.0 Apply difficulty modifiers on top of wave scaling
         return {
-            hp: 1 + step * WAVES.hpScalePerWave,
-            damage: 1 + step * WAVES.damageScalePerWave,
-            speed: 1 + step * WAVES.speedScalePerWave
+            hp: baseScale.hp * this.difficultyMods.enemyHp,
+            damage: baseScale.damage * this.difficultyMods.enemyDamage,
+            speed: baseScale.speed * this.difficultyMods.enemySpeed
         };
     }
 

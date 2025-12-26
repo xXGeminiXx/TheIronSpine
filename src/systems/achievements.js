@@ -213,12 +213,23 @@ export const ACHIEVEMENT_REGISTRY = {
             icon: '^',
             getValue: (run, stats) => stats.personalBests?.highestWave || run.wavesCleared,
             tiers: [
-                { threshold: 10, points: 15 },
-                { threshold: 20, points: 50 },
-                { threshold: 25, points: 100 }, // For endless mode
-                { threshold: 50, points: 200 }
+                { threshold: 25, points: 20 },   // v1.5.0 Updated for 100-wave campaign
+                { threshold: 50, points: 60 },   // Milestone wave
+                { threshold: 75, points: 120 },  // Milestone wave
+                { threshold: 100, points: 250 }  // Campaign completion
             ],
             reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 2 }
+        },
+        {
+            id: 'century_victory', // v1.5.0 NEW
+            name: 'Century',
+            description: 'Complete all 100 waves',
+            icon: 'C',
+            getValue: (run, stats) => (run.result === 'victory' && run.wavesCleared >= 100) ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 300 }   // Massive achievement
+            ],
+            reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 10 }
         },
         {
             id: 'win_streak',
@@ -426,6 +437,112 @@ export const ACHIEVEMENT_REGISTRY = {
                 { threshold: 95, points: 300 }
             ],
             reward: { type: REWARD_TYPES.HP_BONUS, value: 3 }
+        },
+        {
+            id: 'highest_combo', // v1.5.0 NEW - Combo System
+            name: 'Combo Master',
+            description: 'Highest kill combo achieved',
+            icon: 'x',
+            getValue: (run, stats) => stats.personalBests?.highestCombo || run.highestCombo || 0,
+            tiers: [
+                { threshold: 5, points: 15 },    // ROLLING
+                { threshold: 10, points: 40 },   // UNSTOPPABLE
+                { threshold: 15, points: 80 },   // LEGENDARY
+                { threshold: 20, points: 150 }   // IRON SPINE
+            ],
+            reward: { type: REWARD_TYPES.FIRE_RATE_BONUS, value: 2 }
+        },
+        {
+            id: 'hard_victory', // v1.5.0 NEW - Difficulty System
+            name: 'Iron Will',
+            description: 'Win on Hard difficulty',
+            icon: 'H',
+            getValue: (run, stats) => {
+                // Check if player has ever won on hard
+                return (run.result === 'victory' && run.difficulty === 'hard') ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 200 }
+            ],
+            reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 5 }
+        },
+        {
+            id: 'hard_century', // v1.5.0 NEW - Ultimate Challenge
+            name: 'Iron Legend',
+            description: 'Complete 100 waves on Hard',
+            icon: 'L',
+            getValue: (run, stats) => {
+                return (run.result === 'victory' && run.wavesCleared >= 100 && run.difficulty === 'hard') ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 500 }
+            ],
+            reward: { type: REWARD_TYPES.TITLE, value: 'The Iron Legend' }
+        },
+        {
+            id: 'insane_victory', // v1.5.0 NEW - Insane Difficulty
+            name: 'Absolute Mastery',
+            description: 'Win on Insane difficulty',
+            icon: 'I',
+            getValue: (run, stats) => {
+                return (run.result === 'victory' && run.difficulty === 'insane') ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 300 }
+            ],
+            reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 10 }
+        },
+        {
+            id: 'insane_century', // v1.5.0 NEW - God Tier
+            name: 'Iron God',
+            description: 'Complete 100 waves on Insane',
+            icon: 'G',
+            getValue: (run, stats) => {
+                return (run.result === 'victory' && run.wavesCleared >= 100 && run.difficulty === 'insane') ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 1000 }
+            ],
+            reward: { type: REWARD_TYPES.TITLE, value: 'The Iron God' }
+        },
+        {
+            id: 'endless_millennium', // v1.5.0 NEW - Endless Mode Goals
+            name: 'Millennium',
+            description: 'Reach wave 1000 (Normal goal)',
+            icon: 'M',
+            getValue: (run, stats) => {
+                return (run.wavesCleared >= 1000) ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 750 }
+            ],
+            reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 15 }
+        },
+        {
+            id: 'endless_decamillennium', // v1.5.0 NEW - Hard Endless Goal
+            name: 'Decamillennium',
+            description: 'Reach wave 10,000 (Hard goal)',
+            icon: 'D',
+            getValue: (run, stats) => {
+                return (run.wavesCleared >= 10000) ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 2000 }
+            ],
+            reward: { type: REWARD_TYPES.TITLE, value: 'The Eternal' }
+        },
+        {
+            id: 'endless_centimillennium', // v1.5.0 NEW - Insane Endless Goal
+            name: 'Centimillennium',
+            description: 'Reach wave 100,000 (Insane goal)',
+            icon: 'X',
+            getValue: (run, stats) => {
+                return (run.wavesCleared >= 100000) ? 1 : 0;
+            },
+            tiers: [
+                { threshold: 1, points: 5000 }
+            ],
+            reward: { type: REWARD_TYPES.TITLE, value: 'The Transcendent' }
         }
     ],
 

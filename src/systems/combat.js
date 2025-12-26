@@ -1,12 +1,15 @@
 import {
     COLOR_KEYS,
     COLORS,
+    CRIT,
     ENGINE_WEAPON,
     ENEMIES,
     PROJECTILES,
     WEAPON_STATS
 } from '../config.js';
 import { angleTo, distanceSquared, normalizeVector } from '../core/math.js';
+import { updateBoss } from './boss-gen.js';
+import { spawnCritEffect } from './critical-hits.js';
 import {
     createProjectileSprite,
     updateProjectileVisuals,
@@ -65,6 +68,22 @@ export class CombatSystem {
         for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
             const enemy = this.enemies[index];
 
+            // v1.4.0 Handle procedural boss updates
+            if (enemy.isProcedural && enemy.config) {
+                updateBoss(enemy, this.train, deltaSeconds);
+
+                // Check collision and HP for procedural bosses
+                const collisionSegment = this.findCollisionSegment(enemy);
+                if (collisionSegment) {
+                    this.handleEnemyCollision(enemy, collisionSegment);
+                    this.destroyEnemyAtIndex(index);
+                }
+                if (enemy.hp <= 0) {
+                    this.destroyEnemyAtIndex(index);
+                }
+                continue; // Skip normal enemy AI
+            }
+
             this.updateEnemySlow(enemy, deltaSeconds);
 
             if (enemy.type === 'ranger') {
@@ -100,6 +119,31 @@ export class CombatSystem {
         const target = this.getTargetForEnemy(enemy);
         if (!target) {
             return;
+        }
+
+        // v1.4.0 Teleport enemy back if too far off-screen
+        const camera = this.scene.cameras.main;
+        const camBounds = camera.worldView;
+        const teleportMargin = 800; // Teleport if 800 units beyond screen edge
+
+        const tooFarLeft = enemy.x < camBounds.left - teleportMargin;
+        const tooFarRight = enemy.x > camBounds.right + teleportMargin;
+        const tooFarTop = enemy.y < camBounds.top - teleportMargin;
+        const tooFarBottom = enemy.y > camBounds.bottom + teleportMargin;
+
+        if (tooFarLeft || tooFarRight || tooFarTop || tooFarBottom) {
+            // Teleport to opposite edge, closer to player
+            const padding = 150;
+            if (tooFarLeft) {
+                enemy.x = camBounds.right + padding;
+            } else if (tooFarRight) {
+                enemy.x = camBounds.left - padding;
+            }
+            if (tooFarTop) {
+                enemy.y = camBounds.bottom + padding;
+            } else if (tooFarBottom) {
+                enemy.y = camBounds.top - padding;
+            }
         }
 
         const targetAngle = angleTo(enemy.x, enemy.y, target.x, target.y);
@@ -708,6 +752,15 @@ export class CombatSystem {
         const speed = weaponStats.projectileSpeed;
         const radius = PROJECTILES[car.colorKey].radius;
 
+        // v1.4.0 Roll for critical hit
+        let isCrit = false;
+        let critMultiplier = 1.0;
+        if (this.scene.critSystem) {
+            const critRoll = this.scene.critSystem.rollCrit(car.colorKey);
+            isCrit = critRoll.isCrit;
+            critMultiplier = critRoll.multiplier;
+        }
+
         // Create unique projectile visuals based on color type.
         // Each color has distinct shape, trail, and impact effects.
         const { sprite, trailData } = createProjectileSprite(
@@ -718,6 +771,12 @@ export class CombatSystem {
             angle
         );
         sprite.setDepth(PROJECTILE_DEPTH);
+
+        // v1.4.0 Visual enhancement for crits
+        if (isCrit && CRIT.scaleMultiplier) {
+            sprite.setScale(CRIT.scaleMultiplier);
+            sprite.setAlpha(1.0);
+        }
 
         nextProjectileId += 1;
         const projectileId = nextProjectileId;
@@ -739,7 +798,11 @@ export class CombatSystem {
             armorPierce: weaponStats.armorPierce || 0,
             radius,
             sprite,
-            trailData  // Trail data for visual effects
+            trailData,  // Trail data for visual effects
+            isCrit,     // v1.4.0 Critical hit flag
+            critMultiplier,  // v1.4.0 Critical hit multiplier
+            color: COLORS[car.colorKey] ? COLORS[car.colorKey].phaser : 0xffffff,  // v1.4.0 For crit effect
+            stats: weaponStats  // v1.4.0 Store stats for splash damage
         };
 
         this.projectiles.push(projectile);
@@ -806,9 +869,30 @@ export class CombatSystem {
 
     applyProjectileDamage(projectile, enemy) {
         const effectiveArmor = enemy.armor * (1 - projectile.armorPierce);
-        const damage = Math.max(0, projectile.damage - effectiveArmor);
+        let damage = Math.max(0, projectile.damage - effectiveArmor);
+
+        // v1.4.0 Apply combo multiplier
+        if (this.scene.combo) {
+            damage *= this.scene.combo.getMultiplier();
+        }
+
+        // v1.4.0 Apply crit multiplier
+        if (projectile.isCrit && projectile.critMultiplier) {
+            damage *= projectile.critMultiplier;
+        }
+
         enemy.hp = Math.max(0, enemy.hp - damage);
         this.flashEnemy(enemy);
+
+        // v1.4.0 Show crit effect
+        if (projectile.isCrit) {
+            spawnCritEffect(
+                this.scene,
+                { x: projectile.x, y: projectile.y },
+                projectile.color || 0xffffff,
+                damage
+            );
+        }
 
         if (projectile.slowPercent > 0) {
             enemy.slowMultiplier = 1 - projectile.slowPercent;

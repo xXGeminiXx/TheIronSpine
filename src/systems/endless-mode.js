@@ -55,18 +55,21 @@ const DEFAULT_CONFIG = {
     enabled: false,              // Start disabled (toggle via menu)
     startWave: 1,                // Starting wave (1 or continue from saved)
 
-    // Milestone waves (trigger celebrations)
-    milestones: [10, 25, 50, 100, 150, 200, 250, 500, 1000],
+    // Milestone waves (trigger celebrations) - v1.5.0 Extended for difficulty goals
+    milestones: [10, 25, 50, 100, 150, 200, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000],
 
     // Scaling rates
-    enemyHpScaleRate: 0.09,      // HP increase per wave
-    enemyDamageScaleRate: 0.05,  // Damage increase per wave
-    enemySpeedScaleRate: 0.01,   // Speed increase per wave
+    enemyHpScaleRate: 0.15,      // HP scaling (log-sqrt curve, tuned for wave 100 ~= 4x)
+    enemyDamageScaleRate: 0.08,  // Damage scaling (gentler to keep hits survivable)
+    enemySpeedScaleRate: 0.012,  // Speed scaling (caps at 2x by late waves)
 
     // Caps (for balance and performance)
     maxEnemiesAtOnce: 50,        // Performance cap
     maxEnemyHpMultiplier: 1000,  // Even at wave 10000, enemies aren't invincible
     maxEnemyDamageMultiplier: 50, // Players can still survive hits
+
+    // Safety clamp for very large wave numbers (prevents overflow)
+    maxScalingWave: 1000000,
 
     // Difficulty curve type
     // 'linear' - Steady increase
@@ -80,6 +83,14 @@ const DEFAULT_CONFIG = {
     rubberBandReduction: 0.15    // Reduce difficulty by this %
 };
 
+// v1.5.0 Difficulty-based infinite mode goals
+const DIFFICULTY_GOALS = {
+    easy: 100,      // Already completed in campaign
+    normal: 1000,   // Extended challenge
+    hard: 10000,    // Epic achievement
+    insane: 100000  // Legendary status
+};
+
 // Milestone celebration messages
 const MILESTONE_MESSAGES = {
     10: ['WAVE 10!', 'You\'re getting the hang of this!'],
@@ -90,7 +101,13 @@ const MILESTONE_MESSAGES = {
     200: ['WAVE 200!', 'Legendary commander!'],
     250: ['WAVE 250!', 'Is there no end to your power?'],
     500: ['WAVE 500!', 'You are become death!'],
-    1000: ['WAVE 1000!', 'Absolute madman!'],
+    1000: ['MILLENNIUM!', 'WAVE 1000 - Normal Goal Reached!'],
+    2500: ['WAVE 2500!', 'You\'re ascending beyond mortal limits!'],
+    5000: ['WAVE 5000!', 'Halfway to the Hard goal!'],
+    10000: ['DECAMILLENNIUM!', 'WAVE 10,000 - Hard Goal Reached!'],
+    25000: ['WAVE 25,000!', 'The universe trembles!'],
+    50000: ['WAVE 50,000!', 'Halfway to the Insane goal!'],
+    100000: ['CENTIMILLENNIUM!', 'WAVE 100,000 - INSANE GOAL REACHED!'],
     default: ['MILESTONE!', 'Wave {wave}!']
 };
 
@@ -155,23 +172,25 @@ export class EndlessMode {
      * @returns {Object} Wave configuration
      */
     getWaveConfig(wave) {
+        const waveNumber = this.normalizeWaveNumber(wave);
+        const waveForScaling = Math.min(waveNumber, this.config.maxScalingWave);
         const rubberBand = this.getRubberBandMultiplier();
 
         // Base multipliers from difficulty curve
         const hpMult = this.calculateMultiplier(
-            wave,
+            waveForScaling,
             this.config.enemyHpScaleRate,
             this.config.maxEnemyHpMultiplier
         ) * rubberBand;
 
         const damageMult = this.calculateMultiplier(
-            wave,
+            waveForScaling,
             this.config.enemyDamageScaleRate,
             this.config.maxEnemyDamageMultiplier
         ) * rubberBand;
 
         const speedMult = this.calculateMultiplier(
-            wave,
+            waveForScaling,
             this.config.enemySpeedScaleRate,
             2.0  // Speed capped at 2x to keep game playable
         );
@@ -179,25 +198,25 @@ export class EndlessMode {
         // Enemy count scales logarithmically
         const baseEnemyCount = 8;
         const enemyCount = Math.min(
-            baseEnemyCount + Math.floor(Math.log2(wave + 1) * 3),
+            baseEnemyCount + Math.floor(Math.log2(waveForScaling + 1) * 3),
             this.config.maxEnemiesAtOnce
         );
 
         // Score multiplier
-        const scoreMult = endlessScoreMultiplier(wave);
+        const scoreMult = endlessScoreMultiplier(waveForScaling);
 
         // Boss/Champion spawning
-        const spawnBoss = wave % 10 === 0;
-        const spawnChampion = wave % 5 === 0 && !spawnBoss;
+        const spawnBoss = waveNumber % 10 === 0;
+        const spawnChampion = waveNumber % 5 === 0 && !spawnBoss;
 
         // Elite spawn chance increases over time
-        const eliteChance = Math.min(0.5, 0.05 + wave * 0.002);
+        const eliteChance = Math.min(0.5, 0.05 + waveForScaling * 0.002);
 
         // Every 50 waves, add a new enemy type to the mix (future feature)
-        const enemyVariety = Math.floor(wave / 50) + 1;
+        const enemyVariety = Math.floor(waveForScaling / 50) + 1;
 
         return {
-            wave,
+            wave: waveNumber,
             hpMultiplier: hpMult,
             damageMultiplier: damageMult,
             speedMultiplier: speedMult,
@@ -207,8 +226,8 @@ export class EndlessMode {
             spawnChampion,
             eliteChance,
             enemyVariety,
-            isMilestone: this.config.milestones.includes(wave),
-            formattedWave: formatNumber(wave, 0)
+            isMilestone: this.config.milestones.includes(waveNumber),
+            formattedWave: formatNumber(waveNumber, 0)
         };
     }
 
@@ -222,25 +241,46 @@ export class EndlessMode {
      */
     calculateMultiplier(wave, rate, cap) {
         let multiplier;
+        const waveValue = Math.max(1, wave);
 
         switch (this.config.curveType) {
             case 'linear':
-                multiplier = 1 + (wave * rate);
+                multiplier = 1 + (waveValue * rate);
                 break;
 
             case 'exponential':
-                multiplier = Math.pow(1 + rate, wave);
+                // Clamp exponent to avoid Infinity
+                multiplier = Math.pow(1 + rate, Math.min(300, waveValue));
                 break;
 
             case 'logarithmic':
             default:
-                // Grows fast early, slows down later
-                // Wave 10: ~1.5x, Wave 100: ~3x, Wave 1000: ~5x
-                multiplier = 1 + (rate * wave * Math.log10(Math.max(10, wave)));
+                // Grows fast early, smooth late (log-sqrt curve)
+                // Wave 10: ~1.6x, Wave 100: ~4x, Wave 1000: ~15x (with default rates)
+                multiplier = 1 + (rate * Math.log10(waveValue + 9) * Math.sqrt(waveValue));
                 break;
         }
 
-        return Math.min(multiplier, cap);
+        return softCap(multiplier, cap * 0.6, cap);
+    }
+
+    normalizeWaveNumber(wave) {
+        if (typeof wave === 'bigint') {
+            if (wave <= 0n) {
+                return 1;
+            }
+            const max = BigInt(this.config.maxScalingWave || 1);
+            if (wave > max) {
+                return this.config.maxScalingWave;
+            }
+            return Number(wave);
+        }
+
+        const numeric = Number(wave);
+        if (!Number.isFinite(numeric)) {
+            return 1;
+        }
+        return Math.max(1, Math.floor(numeric));
     }
 
     /**
@@ -359,6 +399,29 @@ export class EndlessMode {
     checkVictory(wave) {
         const target = this.getVictoryWave();
         return target !== null && wave >= target;
+    }
+
+    /**
+     * Get the goal wave for a specific difficulty.
+     * v1.5.0 - Difficulty-based infinite mode goals
+     *
+     * @param {string} difficulty - 'easy', 'normal', 'hard', 'insane'
+     * @returns {number} Goal wave count
+     */
+    getGoalWave(difficulty = 'normal') {
+        return DIFFICULTY_GOALS[difficulty] || DIFFICULTY_GOALS.normal;
+    }
+
+    /**
+     * Check if a specific wave count has reached the goal for a difficulty.
+     * v1.5.0 - Difficulty-based goal checking
+     *
+     * @param {number} wave - Current wave number
+     * @param {string} difficulty - 'easy', 'normal', 'hard', 'insane'
+     * @returns {boolean} True if goal reached
+     */
+    hasReachedGoal(wave, difficulty = 'normal') {
+        return wave >= this.getGoalWave(difficulty);
     }
 
     /**
@@ -502,3 +565,6 @@ export function createNewRecordEffect(scene, wave) {
 export function createEndlessMode(options) {
     return new EndlessMode(options);
 }
+
+// v1.5.0 Export difficulty goals for UI display
+export { DIFFICULTY_GOALS };

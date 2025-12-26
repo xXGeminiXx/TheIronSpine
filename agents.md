@@ -77,7 +77,7 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 
 ## Current State (Update As Progress Happens)
 
-### Phase: Production (v1.3.0 - Live on GitHub Pages)
+### Phase: Production (v1.5.0 - Live on GitHub Pages)
 
 **Completed:**
 - Engine silhouette finalized (cartoon locomotive)
@@ -98,23 +98,52 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 - Procedural audio system
 - **Parallax world system** (v1.3)
 - **Unique projectile visuals per color** (v1.3)
+- **Attack telegraphs** (v1.4.0) - Enemy attack warnings
+- **Threat indicators** (v1.4.0) - Off-screen enemy arrows
+- **Combo system** (v1.4.0) - Kill chain multipliers (5 tiers)
+- **Critical hits** (v1.4.0) - Chance-based damage spikes
+- **Weather system** (v1.4.0) - 5 dynamic weather types with modifiers
+- **Procedural bosses** (v1.4.0) - Generated bosses with modular weapons
+- **Screen effects** (v1.4.0) - Cinematic overlays (low HP, combo glow)
+- **100-wave campaign** (v1.5.0) - Extended from 20 to 100 waves with milestones
+- **Difficulty system** (v1.5.0) - Easy/Normal/Hard with full modifiers
+- **Enemy teleport** (v1.5.0) - Prevents off-screen wandering
+- **Scrollbar module** (v1.5.0) - Reusable UI component
 
 **New Art Systems (v1.3):**
 - `src/art/world-gen.js` - Parallax background with mountain terrain, debris, wrecks, signs
 - `src/art/projectile-visuals.js` - Unique shapes and trails per weapon color (tracers, orbs, bolts)
+
+**New Combat Systems (v1.4.0):**
+- `src/systems/telegraph.js` - Visual warnings before enemy attacks (Rangers, Champions, Bosses, Armored)
+- `src/systems/threat-indicator.js` - Edge-of-screen arrows pointing to off-screen threats
+- `src/systems/combo.js` - Kill chain multipliers (1.0x → 1.2x → 1.5x → 2.0x → 3.0x)
+- `src/systems/critical-hits.js` - Weapon-specific crit chances (Yellow: 10%, Purple: 7%, Base: 5%)
+- `src/systems/screen-effects.js` - Reactive overlays (low HP vignette, combo glow, boss desaturation)
+
+**New Environmental Systems (v1.4.0):**
+- `src/systems/weather.js` - 5 weather types (Clear, Fog, Storm, Dust, Ash) with gameplay modifiers
+- `src/systems/boss-gen.js` - Procedural boss factory (4 body types, modular weapons, weak points)
+
+**New Core Systems (v1.5.0):**
+- `src/core/difficulty.js` - 3-tier difficulty system (Easy/Normal/Hard) with modifiers
+- `src/ui/scrollbar.js` - Reusable scrollbar with mouse wheel, touch drag, scrollbar thumb
 
 **New HUD Systems (v1.3 - Codex):**
 - Tier pips per car in spine readout
 - Merge candidate highlighting (pulsing borders)
 - Damage direction pings (edge arrows)
 - Pickup caravans (3-5 grouped spawns)
+- Combo display (top-right, shows kill count + multiplier)
+- Weather display (top-center, shows current weather type)
 
 **Current Priority (see ideas.md for comprehensive list):**
-1. **P1**: Car damage states (visual HP feedback)
-2. **P1**: Armor plate language per tier (visual identity)
-3. **P2**: Attack telegraphs (fairness + readability)
-4. **P3**: Procedural boss factory (showcase feature)
-5. **P10**: Cutting-edge features (adaptive AI, ghost replays, emergent narrative)
+1. **P1**: Apply difficulty modifiers to spawner/combat systems
+2. **P1**: Integrate scrollbar into Settings menu
+3. **P1**: Update achievements for combo milestones, 100-wave completion, difficulty tiers
+4. **P2**: Infinite mode extension (1000/10k/100k waves for different difficulties)
+5. **P2**: Car damage states (visual HP feedback)
+6. **P2**: Armor plate language per tier (visual identity)
 
 ---
 
@@ -191,13 +220,16 @@ requestAnimationFrame(gameLoop);
 | `design-doc.md` | Authoritative design specification. All mechanics, numbers, decisions. Includes historical context on Bartellami Jet's Assault Train. |
 | `ideas.md` | **EXPANDED** - 30+ feature concepts with [SCAFFOLDING] implementation notes for future LLMs. Priority-organized with code location hints. |
 | `agents.md` | This file. Context for AI assistants. |
-| `CLAUDE.md` | Project-specific Claude Code instructions. |
+| `CLAUDE.md` | Project-specific Claude Code instructions. Updated with development practices and game values. |
+| `CHANGELOG.md` | Version history with detailed feature documentation (v1.0.0 through v1.5.0). |
+| `INTEGRATION-GUIDE.md` | Step-by-step integration guide for v1.4.0 systems. |
 | `index.html` | Main game file for Iron Spine. |
-| `src/config.js` | Central configuration for all game values. |
+| `src/config.js` | Central configuration for all game values. **EXTENDED for 100 waves, milestones, difficulty.** |
 | `src/art/` | Procedural art systems (world-gen, projectile-visuals). |
-| `src/core/` | Core game logic (train, merge, pickups, math). |
-| `src/systems/` | Game systems (combat, spawner, audio, hud, achievements). |
+| `src/core/` | Core game logic (train, merge, pickups, math, **difficulty**). |
+| `src/systems/` | Game systems (combat, spawner, audio, hud, achievements, **telegraph, threat-indicator, combo, critical-hits, screen-effects, weather, boss-gen**). |
 | `src/scenes/` | Phaser scenes (game, menu, end, tutorial, settings). |
+| `src/ui/` | UI components (**scrollbar**). |
 
 ---
 
@@ -253,16 +285,70 @@ requestAnimationFrame(gameLoop);
 - Procedural graphics (shapes and colors)
 - Single HTML file deployment
 
-**Out of Scope (V2+):**
-- Additional colors (Green, Orange, Purple, etc.)
+**Completed Beyond V1 Scope:**
+- Enemy attack telegraphs ✅ (v1.4.0)
+- Procedural boss generation ✅ (v1.4.0)
+- Weather/biome system ✅ (v1.4.0)
+- Additional colors (Purple, Orange) ✅ (see ideas.md [Unreleased])
+- Combo system ✅ (v1.4.0)
+- Critical hits ✅ (v1.4.0)
+- Difficulty tiers ✅ (v1.5.0)
+- 100-wave campaign ✅ (v1.5.0)
+
+**Still Out of Scope (V2+):**
 - Utility cars (Armor, Repair, Magnet)
 - Meta-progression / prestige system
 - Multiplayer
 - Leaderboards
-- Enemy attack telegraphs (planned next)
-- Procedural boss generation (planned next)
-- Weather/biome system
 - Station events / interactive background elements
+- Challenge modes (pacifist, speedrun, etc.)
+
+---
+
+## Development Practices (Established v1.4.0-v1.5.0)
+
+### Documentation Requirements
+1. **Always update CHANGELOG.md** when adding features or fixing bugs
+   - Use semantic versioning (MAJOR.MINOR.PATCH)
+   - Document all new systems, files, and configuration changes
+   - Include rationale and implementation notes
+
+2. **Update CLAUDE.md** with development practices and game values
+   - Keep game values current (wave count, scaling rates, etc.)
+   - Document new patterns and architectural decisions
+   - Add warnings about common pitfalls
+
+3. **Update agents.md** after major feature additions
+   - Keep "Current State" section current
+   - Add new files to Key Files Reference
+   - Update priorities based on remaining work
+
+4. **Test integration** before committing major system changes
+   - Verify ES6 module imports (not CommonJS require())
+   - Test new systems in game loop
+   - Check for console errors
+
+### Configuration Architecture
+- **src/config.js is the source of truth** for all game balance
+- New systems should export config constants (e.g., `COMBO`, `CRIT`, `WEATHER`)
+- Always include inline comments explaining formulas and rationale
+- Use `Object.freeze()` for immutable config objects
+
+### Modular System Design
+- Each system lives in its own file (e.g., `combo.js`, `weather.js`)
+- Systems export initialization functions and update loops
+- Integration happens in `game-scene.js` with clear lifecycle:
+  1. Import at top
+  2. Initialize in `create()`
+  3. Update in `update()`
+  4. Cleanup in `destroy()`
+- Use callbacks for cross-system communication (e.g., combo milestones)
+
+### Common Pitfalls
+- **ES6 modules**: Always use `import/export`, never `require()`
+- **Rotation math**: Remember `angle - Math.PI / 2` for inward-pointing arrows
+- **Enemy behavior**: Implement teleport for off-screen enemies (800+ unit margin)
+- **Scaling rates**: Halve rates when extending campaign length (20 → 100 waves)
 
 ---
 
@@ -278,4 +364,6 @@ requestAnimationFrame(gameLoop);
 
 5. **Keep core systems isolated.** Each file represents one core idea (merge logic in `src/core/merge.js`, reordering in its own module). Functions stay single-purpose; avoid mixing system logic across files.
 
-6. **The game should be fun.** If something isn't fun, it should be cut or changed, regardless of how clever the implementation is.
+6. **Update documentation comprehensively.** After major features, update CHANGELOG.md, CLAUDE.md, and agents.md (this file).
+
+7. **The game should be fun.** If something isn't fun, it should be cut or changed, regardless of how clever the implementation is.

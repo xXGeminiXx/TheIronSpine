@@ -95,6 +95,34 @@ export class Hud {
         this.versionText.setDepth(HUD_DEPTH);
         this.versionText.setOrigin(1, 1);
 
+        // v1.4.0 Combo display
+        this.comboText = scene.add.text(0, 0, '', {
+            fontFamily: UI.fontFamily,
+            fontSize: '32px',
+            color: '#ffcc00',
+            stroke: PALETTE.uiShadow,
+            strokeThickness: 4
+        });
+        this.comboText.setResolution(RENDER.textResolution);
+        this.comboText.setScrollFactor(0);
+        this.comboText.setDepth(HUD_DEPTH + 1);
+        this.comboText.setOrigin(1, 0);
+        this.comboText.setAlpha(0);
+
+        // v1.4.0 Weather display
+        this.weatherText = scene.add.text(0, 0, '', {
+            fontFamily: UI.fontFamily,
+            fontSize: '16px',
+            color: '#aaddff',
+            stroke: PALETTE.uiShadow,
+            strokeThickness: 3
+        });
+        this.weatherText.setResolution(RENDER.textResolution);
+        this.weatherText.setScrollFactor(0);
+        this.weatherText.setDepth(HUD_DEPTH);
+        this.weatherText.setOrigin(0.5, 0);
+        this.weatherText.setAlpha(0);
+
         this.debugText = scene.add.text(
             0,
             0,
@@ -164,6 +192,10 @@ export class Hud {
         this.killText.setPosition((width - rightMargin) * scale, padding * scale);
         this.mergeText.setPosition(width * 0.5 * scale, 120 * scale);
 
+        // v1.4.0 New HUD elements positioning
+        this.comboText.setPosition((width - rightMargin) * scale, (padding + 32) * scale);
+        this.weatherText.setPosition(width * 0.5 * scale, (padding + 46) * scale);
+
         if (this.debugText) {
             this.debugText.setPosition(leftMargin * scale, (height - 80) * scale);
         }
@@ -204,6 +236,29 @@ export class Hud {
         this.mergePulseTime += deltaSeconds;
         this.updateEngineBar();
         this.updateCarBar();
+
+        // v1.4.0 Update combo display
+        if (this.scene.combo) {
+            const count = this.scene.combo.getCount();
+            const multiplier = this.scene.combo.getMultiplier();
+            if (count >= 5) {
+                this.comboText.setText(`${count}x COMBO\n${multiplier.toFixed(1)}x DMG`);
+                this.comboText.setAlpha(1);
+            } else {
+                this.comboText.setAlpha(0);
+            }
+        }
+
+        // v1.4.0 Update weather display
+        if (this.scene.weather) {
+            const weatherName = this.scene.weather.getWeatherName();
+            if (weatherName && weatherName !== 'Clear') {
+                this.weatherText.setText(weatherName);
+                this.weatherText.setAlpha(0.8);
+            } else {
+                this.weatherText.setAlpha(0);
+            }
+        }
         this.updatePulseMeter(overdriveState);
         this.updateEngineWeaponText(engineWeaponState);
         this.timerText.setText(this.formatTime(runTimeSeconds));
