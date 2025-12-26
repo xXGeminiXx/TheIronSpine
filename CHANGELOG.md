@@ -43,6 +43,14 @@ When updating this game, follow these conventions:
 
 ---
 
+## [2.0.1] - 2025-12-26 (Bugfixes)
+
+### Fixed
+- Prevented a crash when splash damage shifted enemy indices during projectile hits.
+- Guarded against invalid enemy indices during destruction.
+
+---
+
 ## [2.0.0] - 2025-12-27 (Meta Systems Expansion)
 
 ### Added

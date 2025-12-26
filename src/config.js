@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v2.0.0' // v2.0.0: Prestige, challenges, ghost replay, station events
+    version: 'v2.0.1' // v2.0.1: Projectile cleanup + enemy destroy guards
 });
 
 export const SEEDING = Object.freeze({

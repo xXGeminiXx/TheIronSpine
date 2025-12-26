@@ -381,7 +381,11 @@ export class CombatSystem {
 
                 this.removeProjectileAtIndex(index);
                 if (enemy.hp <= 0) {
-                    this.destroyEnemyAtIndex(hitIndex);
+                    // Splash damage can shift indices; resolve by reference.
+                    const currentIndex = this.enemies.indexOf(enemy);
+                    if (currentIndex !== -1) {
+                        this.destroyEnemyAtIndex(currentIndex);
+                    }
                 }
                 continue;
             }
@@ -1065,7 +1069,14 @@ export class CombatSystem {
     }
 
     destroyEnemyAtIndex(index) {
+        if (index < 0 || index >= this.enemies.length) {
+            return;
+        }
+
         const [enemy] = this.enemies.splice(index, 1);
+        if (!enemy) {
+            return;
+        }
 
         // v1.5.1 Spawn metal shards debris
         if (this.scene.vfx) {
