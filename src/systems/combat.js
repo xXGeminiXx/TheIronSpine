@@ -64,6 +64,7 @@ export class CombatSystem {
         }
         this.updateProjectiles(deltaSeconds);
         this.updateEnemyProjectiles(deltaSeconds);
+        this.resolveProjectileCollisions();
         this.updateAutoFire(deltaSeconds);
         this.updateEngineAutoFire(deltaSeconds);
     }
@@ -1019,6 +1020,14 @@ export class CombatSystem {
         if (hits > 0) {
             this.stats.pulseHits = safeAdd(this.stats.pulseHits, hits);
         }
+
+        this.clearEnemyProjectiles();
+    }
+
+    clearEnemyProjectiles() {
+        for (let index = this.enemyProjectiles.length - 1; index >= 0; index -= 1) {
+            this.removeEnemyProjectileAtIndex(index);
+        }
     }
 
     findProjectileHitIndex(projectile) {
@@ -1045,6 +1054,18 @@ export class CombatSystem {
         return -1;
     }
 
+    findEnemyProjectileHitIndex(projectile) {
+        for (let index = 0; index < this.enemyProjectiles.length; index += 1) {
+            const enemyProjectile = this.enemyProjectiles[index];
+            const maxDistance = enemyProjectile.radius + projectile.radius;
+            if (distanceSquared(projectile.x, projectile.y, enemyProjectile.x, enemyProjectile.y)
+                <= maxDistance ** 2) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
     findEnemyProjectileHitSegment(projectile) {
         const segments = this.train.getAllSegments();
         for (const segment of segments) {
@@ -1055,6 +1076,21 @@ export class CombatSystem {
             }
         }
         return null;
+    }
+
+    resolveProjectileCollisions() {
+        if (this.projectiles.length === 0 || this.enemyProjectiles.length === 0) {
+            return;
+        }
+
+        for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
+            const projectile = this.projectiles[index];
+            const hitIndex = this.findEnemyProjectileHitIndex(projectile);
+            if (hitIndex !== -1) {
+                this.removeEnemyProjectileAtIndex(hitIndex);
+                this.removeProjectileAtIndex(index);
+            }
+        }
     }
 
     handleEnemyCollision(enemy, target) {

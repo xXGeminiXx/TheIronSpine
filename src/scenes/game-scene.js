@@ -82,6 +82,7 @@ import { CriticalHitSystem, spawnCritEffect } from '../systems/critical-hits.js'
 import { ScreenEffectsSystem } from '../systems/screen-effects.js';
 import { WeatherSystem } from '../systems/weather.js';
 import { SynergyManager } from '../systems/synergy.js';
+import { HotkeyOverlay } from '../systems/hotkey-overlay.js';
 import {
     generateBoss,
     spawnBoss,
@@ -281,6 +282,12 @@ export class GameScene extends Phaser.Scene {
             this.mobileControls = null;
         }
 
+        if (!this.isMobileTarget) {
+            this.hotkeyOverlay = new HotkeyOverlay(this);
+        } else {
+            this.hotkeyOverlay = null;
+        }
+
         this.pauseOverlay = addPauseOverlay(this);
         this.dropProtection = new DropProtection(this, {
             onDropDenied: (reason) => this.handleDropDenied(reason),
@@ -410,6 +417,9 @@ export class GameScene extends Phaser.Scene {
         if (this.mobileControls) {
             this.mobileControls.destroy();
         }
+        if (this.hotkeyOverlay) {
+            this.hotkeyOverlay.destroy();
+        }
         // v1.4.0 new systems cleanup
         if (this.telegraph) {
             this.telegraph.clear();
@@ -490,7 +500,11 @@ export class GameScene extends Phaser.Scene {
             this.telegraph.update(deltaSeconds);
         }
         if (this.threatIndicators) {
-            this.threatIndicators.update(this.combatSystem.enemies, this.cameras.main);
+            this.threatIndicators.update({
+                enemies: this.combatSystem.enemies,
+                pickups: this.pickupManager ? this.pickupManager.pickups : [],
+                stationEvent: this.stationEvents ? this.stationEvents.activeEvent : null
+            }, this.cameras.main);
         }
         if (this.combo) {
             this.combo.update(deltaSeconds);
@@ -634,6 +648,9 @@ export class GameScene extends Phaser.Scene {
         }
         if (this.mobileControls) {
             this.mobileControls.setUiScale(uiScale);
+        }
+        if (this.hotkeyOverlay) {
+            this.hotkeyOverlay.setUiScale(uiScale);
         }
     }
 

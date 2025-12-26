@@ -41,6 +41,12 @@ export class Scrollbar {
         this.isDragging = false;
         this.dragStartY = 0;
         this.scrollStartY = 0;
+        this.isContentDragging = false;
+        this.contentDragStartY = 0;
+        this.contentScrollStartY = 0;
+        this.contentDragDistance = 0;
+        this.contentDragThreshold = 6;
+        this.wasDragging = false;
 
         this.container = scene.add.container(this.x, this.y);
         this.contentContainer = scene.add.container(0, 0);
@@ -115,6 +121,42 @@ export class Scrollbar {
             this.isDragging = false;
         });
 
+        // Content drag scrolling (touch + mouse)
+        this.scene.input.on('pointerdown', (pointer, gameObjects) => {
+            if (!this.isPointerOver(pointer) || this.isDragging) {
+                return;
+            }
+            if (gameObjects && gameObjects.includes(this.thumb)) {
+                return;
+            }
+            this.isContentDragging = true;
+            this.contentDragStartY = pointer.y;
+            this.contentScrollStartY = this.scrollY;
+            this.contentDragDistance = 0;
+            this.wasDragging = false;
+            this.scrollVelocity = 0;
+        });
+
+        this.scene.input.on('pointermove', (pointer) => {
+            if (!this.isContentDragging || this.isDragging) {
+                return;
+            }
+            const deltaY = pointer.y - this.contentDragStartY;
+            this.contentDragDistance = Math.max(this.contentDragDistance, Math.abs(deltaY));
+            if (this.contentDragDistance < this.contentDragThreshold) {
+                return;
+            }
+            this.setScroll(this.contentScrollStartY - deltaY);
+        });
+
+        this.scene.input.on('pointerup', () => {
+            if (!this.isContentDragging) {
+                return;
+            }
+            this.wasDragging = this.contentDragDistance >= this.contentDragThreshold;
+            this.isContentDragging = false;
+        });
+
         // Thumb hover effect
         this.thumb.on('pointerover', () => {
             this.updateThumb(true);
@@ -151,6 +193,10 @@ export class Scrollbar {
 
     update() {
         // Apply momentum
+        if (this.isDragging || this.isContentDragging) {
+            this.scrollVelocity = 0;
+            return;
+        }
         if (Math.abs(this.scrollVelocity) > 0.1) {
             this.scroll(this.scrollVelocity);
             this.setScroll(this.scrollY + this.scrollVelocity);
@@ -158,6 +204,12 @@ export class Scrollbar {
         } else {
             this.scrollVelocity = 0;
         }
+    }
+
+    consumeDragFlag() {
+        const wasDragging = this.wasDragging;
+        this.wasDragging = false;
+        return wasDragging;
     }
 
     getThumbHeight() {

@@ -16,7 +16,19 @@
  *   - Visual telegraph: 3 vertical barriers, labeled lanes, approach warning
  */
 
-import { STATION_EVENTS, TRAIN, COLORS, PALETTE } from '../config.js';
+import { STATION_EVENTS, COLORS } from '../config.js';
+
+function normalizeVector(x, y) {
+    const length = Math.hypot(x, y);
+    if (!length) {
+        return { x: 1, y: 0 };
+    }
+    return { x: x / length, y: y / length };
+}
+
+function dot(a, b) {
+    return a.x * b.x + a.y * b.y;
+}
 
 /**
  * Station Event - A 3-lane gate with buff rewards
@@ -27,6 +39,9 @@ export class StationEvent {
         this.position = position;
         this.onBuffApplied = callbacks.onBuffApplied || (() => {});
         this.onCompleted = callbacks.onCompleted || (() => {});
+        const forward = normalizeVector(callbacks.forward?.x ?? 1, callbacks.forward?.y ?? 0);
+        this.forward = forward;
+        this.right = { x: -forward.y, y: forward.x };
 
         this.active = true;
         this.consumed = false;
@@ -34,8 +49,7 @@ export class StationEvent {
         // Lane boundaries (left, center, right)
         const laneWidth = STATION_EVENTS.laneWidth;
         const gateWidth = STATION_EVENTS.gateWidth;
-        const leftBoundary = position.x - gateWidth * 0.5;
-        const rightBoundary = position.x + gateWidth * 0.5;
+        const halfGate = gateWidth * 0.5;
 
         this.lanes = [
             {
@@ -44,8 +58,9 @@ export class StationEvent {
                 buffType: 'fireRate',
                 color: COLORS.red.phaser,
                 colorHex: COLORS.red.hex,
-                minX: leftBoundary,
-                maxX: leftBoundary + laneWidth
+                minOffset: -halfGate,
+                maxOffset: -halfGate + laneWidth,
+                centerOffset: -halfGate + laneWidth * 0.5
             },
             {
                 key: 'center',
@@ -53,8 +68,9 @@ export class StationEvent {
                 buffType: 'repair',
                 color: 0x00ff00,
                 colorHex: '#00ff00',
-                minX: leftBoundary + laneWidth,
-                maxX: leftBoundary + laneWidth * 2
+                minOffset: -laneWidth * 0.5,
+                maxOffset: laneWidth * 0.5,
+                centerOffset: 0
             },
             {
                 key: 'right',
@@ -62,8 +78,9 @@ export class StationEvent {
                 buffType: 'speed',
                 color: COLORS.blue.phaser,
                 colorHex: COLORS.blue.hex,
-                minX: leftBoundary + laneWidth * 2,
-                maxX: rightBoundary
+                minOffset: halfGate - laneWidth,
+                maxOffset: halfGate,
+                centerOffset: halfGate - laneWidth * 0.5
             }
         ];
 
@@ -71,9 +88,13 @@ export class StationEvent {
         this.graphics.setDepth(5); // Below train, above world
 
         this.labels = this.lanes.map((lane) => {
+            const labelPosition = this.getOffsetPoint(
+                lane.centerOffset,
+                -STATION_EVENTS.laneHeight * 0.5 - 40
+            );
             const text = scene.add.text(
-                lane.minX + laneWidth * 0.5,
-                position.y - STATION_EVENTS.laneHeight * 0.5 - 40,
+                labelPosition.x,
+                labelPosition.y,
                 lane.label,
                 {
                     fontSize: `${STATION_EVENTS.labelFontSize}px`,
@@ -91,9 +112,13 @@ export class StationEvent {
         });
 
         // Approach warning indicator (shows when close)
+        const warningPosition = this.getOffsetPoint(
+            0,
+            -STATION_EVENTS.laneHeight * 0.5 - 80
+        );
         this.warningText = scene.add.text(
-            position.x,
-            position.y - STATION_EVENTS.laneHeight * 0.5 - 80,
+            warningPosition.x,
+            warningPosition.y,
             'STATION AHEAD',
             {
                 fontSize: '32px',
@@ -140,27 +165,53 @@ export class StationEvent {
             this.checkLaneSelection(engine);
         }
 
-        // Auto-complete when engine passes through
-        if (engine.y > this.position.y + STATION_EVENTS.laneHeight * 0.5 + 100) {
+        // Auto-complete only after the engine has clearly passed beyond the gate.
+        const forwardDist = this.getForwardOffset(engine);
+        const autoCompleteBuffer = 180;
+        const forwardThreshold = STATION_EVENTS.laneHeight * 0.5 + autoCompleteBuffer;
+        const distanceThreshold = STATION_EVENTS.laneHeight + autoCompleteBuffer;
+        if (forwardDist > forwardThreshold && distanceToGate > distanceThreshold) {
             this.complete();
         }
+
+    }
+
+    getOffsetPoint(lateralOffset, forwardOffset) {
+        return {
+            x: this.position.x + this.right.x * lateralOffset + this.forward.x * forwardOffset,
+            y: this.position.y + this.right.y * lateralOffset + this.forward.y * forwardOffset
+        };
+    }
+
+    getForwardOffset(point) {
+        const relative = {
+            x: point.x - this.position.x,
+            y: point.y - this.position.y
+        };
+        return dot(relative, this.forward);
+    }
+
+    getLateralOffset(point) {
+        const relative = {
+            x: point.x - this.position.x,
+            y: point.y - this.position.y
+        };
+        return dot(relative, this.right);
     }
 
     /**
      * Detect which lane the engine is in and apply buff
      */
     checkLaneSelection(engine) {
-        // Only trigger when engine is within gate Y bounds
-        const yMin = this.position.y - STATION_EVENTS.laneHeight * 0.5;
-        const yMax = this.position.y + STATION_EVENTS.laneHeight * 0.5;
-
-        if (engine.y < yMin || engine.y > yMax) {
+        const forwardOffset = this.getForwardOffset(engine);
+        if (Math.abs(forwardOffset) > STATION_EVENTS.laneHeight * 0.5) {
             return;
         }
 
-        // Find which lane the engine is in based on X position
+        const lateralOffset = this.getLateralOffset(engine);
+        // Find which lane the engine is in based on lateral offset
         for (const lane of this.lanes) {
-            if (engine.x >= lane.minX && engine.x < lane.maxX) {
+            if (lateralOffset >= lane.minOffset && lateralOffset < lane.maxOffset) {
                 this.selectLane(lane);
                 return;
             }
@@ -204,20 +255,30 @@ export class StationEvent {
      * Flash effect for selected lane
      */
     flashLane(lane) {
-        const flash = this.scene.add.rectangle(
-            lane.minX + STATION_EVENTS.laneWidth * 0.5,
-            this.position.y,
-            STATION_EVENTS.laneWidth - 8,
-            STATION_EVENTS.laneHeight - 8,
-            lane.color,
-            0.6
-        );
+        const flash = this.scene.add.graphics();
         flash.setDepth(5);
+
+        const halfLaneWidth = STATION_EVENTS.laneWidth * 0.5 - 4;
+        const halfLaneHeight = STATION_EVENTS.laneHeight * 0.5 - 4;
+        const leftOffset = lane.centerOffset - halfLaneWidth;
+        const rightOffset = lane.centerOffset + halfLaneWidth;
+        const topLeft = this.getOffsetPoint(leftOffset, halfLaneHeight);
+        const topRight = this.getOffsetPoint(rightOffset, halfLaneHeight);
+        const bottomRight = this.getOffsetPoint(rightOffset, -halfLaneHeight);
+        const bottomLeft = this.getOffsetPoint(leftOffset, -halfLaneHeight);
+
+        flash.fillStyle(lane.color, 0.55);
+        flash.beginPath();
+        flash.moveTo(topLeft.x, topLeft.y);
+        flash.lineTo(topRight.x, topRight.y);
+        flash.lineTo(bottomRight.x, bottomRight.y);
+        flash.lineTo(bottomLeft.x, bottomLeft.y);
+        flash.closePath();
+        flash.fillPath();
 
         this.scene.tweens.add({
             targets: flash,
             alpha: 0,
-            scale: 1.2,
             duration: 400,
             ease: 'Cubic.easeOut',
             onComplete: () => flash.destroy()
@@ -234,41 +295,51 @@ export class StationEvent {
 
         this.graphics.clear();
 
+        const halfLaneWidth = STATION_EVENTS.laneWidth * 0.5;
+        const halfLaneHeight = STATION_EVENTS.laneHeight * 0.5;
+
         // Draw each lane barrier
         for (const lane of this.lanes) {
+            const leftOffset = lane.centerOffset - halfLaneWidth;
+            const rightOffset = lane.centerOffset + halfLaneWidth;
+            const topLeft = this.getOffsetPoint(leftOffset, halfLaneHeight);
+            const topRight = this.getOffsetPoint(rightOffset, halfLaneHeight);
+            const bottomRight = this.getOffsetPoint(rightOffset, -halfLaneHeight);
+            const bottomLeft = this.getOffsetPoint(leftOffset, -halfLaneHeight);
+
             // Lane background (semi-transparent)
             this.graphics.fillStyle(lane.color, this.consumed ? 0.05 : 0.15);
-            this.graphics.fillRect(
-                lane.minX,
-                this.position.y - STATION_EVENTS.laneHeight * 0.5,
-                STATION_EVENTS.laneWidth,
-                STATION_EVENTS.laneHeight
-            );
+            this.graphics.beginPath();
+            this.graphics.moveTo(topLeft.x, topLeft.y);
+            this.graphics.lineTo(topRight.x, topRight.y);
+            this.graphics.lineTo(bottomRight.x, bottomRight.y);
+            this.graphics.lineTo(bottomLeft.x, bottomLeft.y);
+            this.graphics.closePath();
+            this.graphics.fillPath();
 
             // Lane border (vertical barriers)
             this.graphics.lineStyle(4, lane.color, this.consumed ? 0.3 : 0.7);
-            const leftX = lane.minX;
-            const rightX = lane.maxX;
-            const topY = this.position.y - STATION_EVENTS.laneHeight * 0.5;
-            const bottomY = this.position.y + STATION_EVENTS.laneHeight * 0.5;
 
             // Left border
             this.graphics.strokeLineShape(
-                new Phaser.Geom.Line(leftX, topY, leftX, bottomY)
+                new Phaser.Geom.Line(topLeft.x, topLeft.y, bottomLeft.x, bottomLeft.y)
             );
 
             // Right border
             this.graphics.strokeLineShape(
-                new Phaser.Geom.Line(rightX, topY, rightX, bottomY)
+                new Phaser.Geom.Line(topRight.x, topRight.y, bottomRight.x, bottomRight.y)
             );
 
             // Decorative cross-bars
             const crossCount = 3;
             for (let i = 0; i <= crossCount; i++) {
-                const y = topY + (bottomY - topY) * (i / crossCount);
+                const t = i / crossCount;
+                const forwardOffset = halfLaneHeight - (halfLaneHeight * 2 * t);
+                const leftPoint = this.getOffsetPoint(leftOffset, forwardOffset);
+                const rightPoint = this.getOffsetPoint(rightOffset, forwardOffset);
                 this.graphics.lineStyle(2, lane.color, this.consumed ? 0.2 : 0.4);
                 this.graphics.strokeLineShape(
-                    new Phaser.Geom.Line(leftX, y, rightX, y)
+                    new Phaser.Geom.Line(leftPoint.x, leftPoint.y, rightPoint.x, rightPoint.y)
                 );
             }
         }
@@ -373,6 +444,7 @@ export class StationEventManager {
         };
 
         this.activeEvent = new StationEvent(this.scene, position, {
+            forward,
             onBuffApplied: (buff) => this.applyBuff(buff),
             onCompleted: () => {
                 this.activeEvent = null;

@@ -68,7 +68,7 @@ export class ScreenEffectsSystem {
         this.pulseTimer += deltaSeconds;
 
         // Low HP vignette
-        if (hpPercent < 0.3) {
+        if (hpPercent < 0.22) {
             this.updateLowHPVignette(hpPercent);
         } else {
             this.vignette.setAlpha(0);
@@ -88,11 +88,12 @@ export class ScreenEffectsSystem {
         this.lowHpActive = true;
 
         // Intensity increases as HP drops
-        const intensity = Phaser.Math.Clamp((0.3 - hpPercent) / 0.3, 0, 1);
+        const threshold = 0.22;
+        const intensity = Phaser.Math.Clamp((threshold - hpPercent) / threshold, 0, 1);
 
         // Pulse effect
-        const pulse = 0.5 + 0.5 * Math.sin(this.pulseTimer * 3);
-        const alpha = intensity * 0.4 * pulse;
+        const pulse = 0.85 + 0.15 * Math.sin(this.pulseTimer * 2);
+        const alpha = intensity * 0.25 * pulse;
 
         this.vignette.clear();
         this.vignette.setAlpha(alpha);
@@ -103,9 +104,10 @@ export class ScreenEffectsSystem {
         const maxRadius = Math.max(this.scene.cameras.main.width, this.scene.cameras.main.height);
 
         // Multiple circles for gradient effect
-        for (let i = 0; i < 8; i++) {
-            const radius = maxRadius * (1 - i / 8);
-            const circleAlpha = i / 8;
+        const steps = 6;
+        for (let i = 0; i < steps; i++) {
+            const radius = maxRadius * (1 - i / steps);
+            const circleAlpha = (i / steps) * 0.7;
             this.vignette.fillStyle(0xff0000, circleAlpha);
             this.vignette.fillCircle(centerX, centerY, radius);
         }

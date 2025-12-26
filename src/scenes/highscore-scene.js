@@ -255,7 +255,10 @@ export class HighscoreScene extends Phaser.Scene {
         this.entries = entries || [];
         const error = getHighscoreLastError();
         if (!this.entries.length && error) {
-            this.setStatus('No response from highscore server.');
+            const message = error && error.message
+                ? error.message.replace('Highscore fetch failed: ', 'HTTP ')
+                : 'No response';
+            this.setStatus(`Highscores offline (${message}).`);
         } else if (!this.entries.length) {
             this.setStatus('No highscores yet. Claim the top spot.');
         } else {

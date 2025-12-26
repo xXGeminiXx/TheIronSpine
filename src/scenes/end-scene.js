@@ -105,7 +105,7 @@ export class EndScene extends Phaser.Scene {
         // RUN STATISTICS
         // ------------------------------------------------------------------------
         const statLines = this.buildStatLines(stats, newBests, scrapEarned);
-        const statsText = this.add.text(width * 0.5, height * 0.45, statLines.join('\n'), {
+        const statsText = this.add.text(width * 0.5, 0, statLines.join('\n'), {
             fontFamily: UI.fontFamily,
             fontSize: `${UI.statsFontSize}px`,
             color: PALETTE.uiText,
@@ -113,28 +113,47 @@ export class EndScene extends Phaser.Scene {
             lineSpacing: 4
         }).setOrigin(0.5);
         statsText.setResolution(RENDER.textResolution);
+        const statsHeight = statsText.getBounds().height;
+        const titleY = height * 0.15;
+        const statsTop = newBests.length > 0
+            ? titleY + 56
+            : titleY + 36;
+        statsText.setPosition(width * 0.5, statsTop + statsHeight * 0.5);
+        const statsBounds = statsText.getBounds();
 
         // ------------------------------------------------------------------------
         // NEW PERSONAL BESTS INDICATOR
         // ------------------------------------------------------------------------
         if (newBests.length > 0) {
-            this.createNewBestsIndicator(width, height, newBests);
+            const bestY = Math.max(titleY + 28, statsBounds.top - 20);
+            this.createNewBestsIndicator(width, bestY, newBests);
+        }
+
+        let cursorY = statsBounds.bottom + 14;
+
+        // ------------------------------------------------------------------------
+        // SEED DISPLAY (if seeded runs enabled)
+        // ------------------------------------------------------------------------
+        const seedText = this.createSeedDisplay(width, cursorY);
+        if (seedText) {
+            cursorY = seedText.getBounds().bottom + 6;
         }
 
         // ------------------------------------------------------------------------
         // LEADERBOARD STATUS
         // ------------------------------------------------------------------------
-        this.createLeaderboardStatus(width, height, leaderboardResult);
-
-        // ------------------------------------------------------------------------
-        // SEED DISPLAY (if seeded runs enabled)
-        // ------------------------------------------------------------------------
-        this.createSeedDisplay(width, height);
+        const leaderboardText = this.createLeaderboardStatus(width, cursorY, leaderboardResult);
+        if (leaderboardText) {
+            cursorY = leaderboardText.getBounds().bottom + 6;
+        }
 
         // ------------------------------------------------------------------------
         // REMOTE HIGHSCORE SUBMISSION
         // ------------------------------------------------------------------------
-        this.createRemoteHighscoreSection(width, height, runData, stats);
+        const highscoreBlock = this.createRemoteHighscoreSection(width, cursorY, runData, stats);
+        if (highscoreBlock) {
+            cursorY = highscoreBlock.bottom + 10;
+        }
 
         // ------------------------------------------------------------------------
         // ACTION BUTTONS
@@ -149,13 +168,18 @@ export class EndScene extends Phaser.Scene {
         let retryText;
         let continueText;
 
+        const actionBaseY = Math.min(
+            height * 0.82,
+            Math.max(height * 0.68, cursorY + 12)
+        );
+
         if (canContinueToEndless) {
             // Show "CONTINUE TO ENDLESS" option
             const difficulty = stats.difficulty || SETTINGS.difficulty || 'normal';
             const goalWave = DIFFICULTY_GOALS[difficulty] || 1000;
             const goalText = formatNumber(goalWave);
 
-            continueText = this.add.text(width * 0.5, height * 0.72,
+            continueText = this.add.text(width * 0.5, actionBaseY,
                 `CONTINUE TO ENDLESS (Goal: Wave ${goalText})`, {
                 fontFamily: UI.fontFamily,
                 fontSize: `${UI.subtitleFontSize}px`,
@@ -169,14 +193,14 @@ export class EndScene extends Phaser.Scene {
             });
 
             // Retry button moved down
-            retryText = this.add.text(width * 0.5, height * 0.82, 'RETRY CAMPAIGN [SPACE]', {
+            retryText = this.add.text(width * 0.5, actionBaseY + 48, 'RETRY CAMPAIGN [SPACE]', {
                 fontFamily: UI.fontFamily,
                 fontSize: '18px',
                 color: PALETTE.uiText
             }).setOrigin(0.5);
         } else {
             // Standard retry button
-            retryText = this.add.text(width * 0.5, height * 0.78, 'TAP OR CLICK TO RETRY', {
+            retryText = this.add.text(width * 0.5, actionBaseY, 'TAP OR CLICK TO RETRY', {
                 fontFamily: UI.fontFamily,
                 fontSize: `${UI.subtitleFontSize}px`,
                 color: PALETTE.warning
@@ -184,8 +208,13 @@ export class EndScene extends Phaser.Scene {
         }
         retryText.setResolution(RENDER.textResolution);
 
+        const footerY = Math.min(
+            height * 0.92,
+            Math.max(height * 0.86, actionBaseY + (canContinueToEndless ? 70 : 52))
+        );
+
         // Settings button (bottom left)
-        const settingsText = this.add.text(width * 0.25, height * 0.88, 'SETTINGS [S]', {
+        const settingsText = this.add.text(width * 0.25, footerY, 'SETTINGS [S]', {
             fontFamily: UI.fontFamily,
             fontSize: '16px',
             color: PALETTE.uiText
@@ -194,7 +223,7 @@ export class EndScene extends Phaser.Scene {
         this.makeInteractive(settingsText, () => this.scene.start('SettingsScene'));
 
         // Menu button (bottom right)
-        const menuText = this.add.text(width * 0.75, height * 0.88, 'MENU [M]', {
+        const menuText = this.add.text(width * 0.75, footerY, 'MENU [M]', {
             fontFamily: UI.fontFamily,
             fontSize: '16px',
             color: PALETTE.uiText
@@ -203,8 +232,8 @@ export class EndScene extends Phaser.Scene {
         this.makeInteractive(menuText, () => this.scene.start('MenuScene'));
 
         let highscoresText = null;
-        if (isRemoteHighscoreEnabled()) {
-            highscoresText = this.add.text(width * 0.5, height * 0.88, 'HIGHSCORES [H]', {
+        if (isRemoteHighscoreEnabled() && !stats.devConsoleUsed) {
+            highscoresText = this.add.text(width * 0.5, footerY, 'HIGHSCORES [H]', {
                 fontFamily: UI.fontFamily,
                 fontSize: '16px',
                 color: PALETTE.uiText
@@ -318,6 +347,7 @@ export class EndScene extends Phaser.Scene {
             mergesCompleted: stats.mergesCompleted || 0,
             highestTier: stats.highestTier || 1,
             finalCarCount: stats.finalCarCount || 0,
+            devConsoleUsed: Boolean(stats.devConsoleUsed),
             challengeMode: stats.challengeMode || null // v1.6.2 Challenge mode tracking
         };
     }
@@ -400,11 +430,11 @@ export class EndScene extends Phaser.Scene {
      * Create "NEW PERSONAL BESTS!" indicator.
      *
      * @param {number} width - Screen width
-     * @param {number} height - Screen height
+     * @param {number} y - Top Y position for the seed line
      * @param {Array} newBests - Array of new best keys
      */
-    createNewBestsIndicator(width, height, newBests) {
-        const bestText = this.add.text(width * 0.5, height * 0.25,
+    createNewBestsIndicator(width, y, newBests) {
+        const bestText = this.add.text(width * 0.5, y,
             `NEW PERSONAL BEST${newBests.length > 1 ? 'S' : ''}!`, {
             fontFamily: UI.fontFamily,
             fontSize: '18px',
@@ -429,12 +459,12 @@ export class EndScene extends Phaser.Scene {
      * Show leaderboard result messaging on the end screen.
      *
      * @param {number} width - Screen width
-     * @param {number} height - Screen height
+     * @param {number} y - Top Y position for the status line
      * @param {Object} leaderboardResult - Result metadata
      */
-    createLeaderboardStatus(width, height, leaderboardResult) {
+    createLeaderboardStatus(width, y, leaderboardResult) {
         if (!leaderboardResult) {
-            return;
+            return null;
         }
 
         let statusText = '';
@@ -452,25 +482,26 @@ export class EndScene extends Phaser.Scene {
             statusText = 'Leaderboard: Not in Top 10';
         }
 
-        const status = this.add.text(width * 0.5, height * 0.62, statusText, {
+        const status = this.add.text(width * 0.5, y, statusText, {
             fontFamily: UI.fontFamily,
             fontSize: '12px',
             color: statusColor,
             alpha: 0.8
-        }).setOrigin(0.5);
+        }).setOrigin(0.5, 0);
         status.setResolution(RENDER.textResolution);
+        return status;
     }
 
     /**
      * Display the run seed for sharing and reproducibility.
      *
      * @param {number} width - Screen width
-     * @param {number} height - Screen height
+     * @param {number} y - Top Y position for the submission block
      */
-    createSeedDisplay(width, height) {
+    createSeedDisplay(width, y) {
         // Only show if seeding is enabled and configured to show on end screen
         if (!SEEDING.enabled || !SEEDING.showSeedOnEndScreen) {
-            return;
+            return null;
         }
 
         // Get seed from registry (set by GameScene)
@@ -485,7 +516,7 @@ export class EndScene extends Phaser.Scene {
         // Display seed just below the stats (above leaderboard status)
         const seedText = this.add.text(
             width * 0.5,
-            height * 0.58,
+            y,
             `Run Seed: ${seed} (${seedType})`,
             {
                 fontFamily: UI.fontFamily,
@@ -493,7 +524,7 @@ export class EndScene extends Phaser.Scene {
                 color: PALETTE.uiText,
                 alpha: 0.9
             }
-        ).setOrigin(0.5);
+        ).setOrigin(0.5, 0);
         seedText.setResolution(RENDER.textResolution);
 
         // Make it interactive for easy copying
@@ -533,6 +564,8 @@ export class EndScene extends Phaser.Scene {
                 }
             }
         });
+
+        return seedText;
     }
 
     /**
@@ -543,9 +576,25 @@ export class EndScene extends Phaser.Scene {
      * @param {Object} runData - Parsed run data
      * @param {Object} stats - Original stats payload
      */
-    createRemoteHighscoreSection(width, height, runData, stats) {
+    createRemoteHighscoreSection(width, y, runData, stats) {
         if (!isRemoteHighscoreEnabled()) {
-            return;
+            return null;
+        }
+
+        if (stats.devConsoleUsed) {
+            const disabledText = this.add.text(
+                width * 0.5,
+                y,
+                'Highscores disabled (Dev Console used)',
+                {
+                    fontFamily: UI.fontFamily,
+                    fontSize: '12px',
+                    color: '#ff6666',
+                    alpha: 0.8
+                }
+            ).setOrigin(0.5, 0);
+            disabledText.setResolution(RENDER.textResolution);
+            return { bottom: disabledText.getBounds().bottom };
         }
 
         this.highscoreRunData = runData;
@@ -557,31 +606,36 @@ export class EndScene extends Phaser.Scene {
         };
         this.highscoreSubmitInProgress = false;
 
-        const submitText = this.add.text(width * 0.5, height * 0.66, 'SUBMIT HIGHSCORE', {
+        let cursorY = y;
+        const submitText = this.add.text(width * 0.5, cursorY, 'SUBMIT HIGHSCORE', {
             fontFamily: UI.fontFamily,
             fontSize: '16px',
             color: PALETTE.warning
-        }).setOrigin(0.5);
+        }).setOrigin(0.5, 0);
         submitText.setResolution(RENDER.textResolution);
         this.makeInteractive(submitText, () => this.promptHighscoreSubmission());
         this.highscoreSubmitText = submitText;
 
-        this.highscoreStatusText = this.add.text(width * 0.5, height * 0.695, '', {
+        cursorY = submitText.getBounds().bottom + 4;
+        this.highscoreStatusText = this.add.text(width * 0.5, cursorY, '', {
             fontFamily: UI.fontFamily,
             fontSize: '12px',
             color: PALETTE.uiText,
             alpha: 0.8
-        }).setOrigin(0.5);
+        }).setOrigin(0.5, 0);
         this.highscoreStatusText.setResolution(RENDER.textResolution);
 
-        const infoText = this.add.text(width * 0.5, height * 0.72,
+        cursorY = this.highscoreStatusText.getBounds().bottom + 4;
+        const infoText = this.add.text(width * 0.5, cursorY,
             'Anonymous arcade board. Same name updates your entry.', {
                 fontFamily: UI.fontFamily,
                 fontSize: '12px',
                 color: PALETTE.uiText,
                 alpha: 0.6
-            }).setOrigin(0.5);
+            }).setOrigin(0.5, 0);
         infoText.setResolution(RENDER.textResolution);
+
+        return { bottom: infoText.getBounds().bottom };
     }
 
     async promptHighscoreSubmission() {
@@ -804,6 +858,19 @@ export class EndScene extends Phaser.Scene {
         if (result.ok) {
             const rankLabel = Number.isFinite(result.rank) ? ` Rank #${result.rank}` : '';
             this.setHighscoreStatus(`Submitted!${rankLabel}`);
+        } else if (result.reason === 'dev-console') {
+            this.setHighscoreStatus('Submission blocked (Dev Console used).');
+        } else if (result.reason && result.reason.startsWith('http-')) {
+            const status = result.reason.replace('http-', '');
+            if (status === '404' || status === '405') {
+                this.setHighscoreStatus(`Highscore endpoint missing (HTTP ${status}).`);
+            } else {
+                this.setHighscoreStatus(`Highscore server error (HTTP ${status}).`);
+            }
+        } else if (result.reason === 'network-error') {
+            this.setHighscoreStatus('Highscore server unreachable.');
+        } else if (result.reason === 'disabled') {
+            this.setHighscoreStatus('Highscores disabled on this host.');
         } else {
             this.setHighscoreStatus('Submission failed.');
         }

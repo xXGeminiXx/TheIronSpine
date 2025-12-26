@@ -51,6 +51,7 @@ export class Hud {
         this.killText.setDepth(HUD_DEPTH);
         // Prevent text overflow - wordWrap with right alignment
         this.killText.setWordWrapWidth(200, false);
+        this.killText.setAlign('right');
 
         this.waveText = scene.add.text(
             0,
@@ -112,6 +113,7 @@ export class Hud {
         this.comboText.setAlpha(0);
         // Prevent text overflow - wordWrap with right alignment
         this.comboText.setWordWrapWidth(300, false);
+        this.comboText.setAlign('right');
 
         // v1.4.0 Weather display
         this.weatherText = scene.add.text(0, 0, '', {
@@ -199,18 +201,22 @@ export class Hud {
         const scale = this.uiScale || 1;
         // Safe-area padding is handled by the game container; keep a small edge buffer.
         const edgeMargin = padding + 12;
-        const textMargin = edgeMargin * scale;
-        const textPadding = padding * scale;
+        const textMargin = Math.max(16, edgeMargin * scale);
+        const textPadding = Math.max(12, padding * scale);
 
         // Update text word wrap widths dynamically based on screen size
         // This ensures text never overflows regardless of screen size
-        const maxRightTextWidth = Math.max(150, width * 0.3);
+        const maxRightTextWidth = Math.max(150, Math.min(width * 0.3, 260));
         const wrappedRightWidth = maxRightTextWidth / scale;
         if (this.killText) {
             this.killText.setWordWrapWidth(wrappedRightWidth, false);
+            this.killText.setFixedSize(wrappedRightWidth, 0);
+            this.killText.setAlign('right');
         }
         if (this.comboText) {
             this.comboText.setWordWrapWidth(wrappedRightWidth, false);
+            this.comboText.setFixedSize(wrappedRightWidth, 0);
+            this.comboText.setAlign('right');
         }
 
         this.engineLabel.setPosition(textMargin, textPadding - 2 * scale);
@@ -258,6 +264,9 @@ export class Hud {
         if (this.seedText) {
             this.seedText.setPosition(textMargin, textPadding + 90 * scale);
         }
+
+        this.clampRightEdge(this.killText, width);
+        this.clampRightEdge(this.comboText, width);
     }
 
     setUiScale(scale) {
@@ -289,6 +298,17 @@ export class Hud {
         this.versionText.setScale(scale);
         if (this.seedText) {
             this.seedText.setScale(scale);
+        }
+    }
+
+    clampRightEdge(text, width) {
+        if (!text) {
+            return;
+        }
+        const bounds = text.getBounds();
+        const maxRight = width - 6;
+        if (bounds.right > maxRight) {
+            text.x -= bounds.right - maxRight;
         }
     }
 

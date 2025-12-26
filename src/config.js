@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v2.0.3' // v2.0.3: Threat indicator redesign
+    version: 'v2.1.0' // v2.1.0: Indicators, stations, HUD, and polish pass
 });
 
 export const SEEDING = Object.freeze({

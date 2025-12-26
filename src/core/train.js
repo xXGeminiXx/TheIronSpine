@@ -72,6 +72,7 @@ export class Train {
         this.turnPenalties = new Map();
         this.turnPenaltyMultiplier = 1;
         this.heatIntensity = 0;
+        this.thrusterTimer = 0;
         this.shadowGraphics = this.scene.add.graphics();
         this.shadowGraphics.setDepth(SHADOW_DEPTH);
         this.headlightGraphics = this.scene.add.graphics();
@@ -83,6 +84,7 @@ export class Train {
         this.updateBoostTimers(deltaSeconds, inputState.boostRequested);
         this.updateTurnPenalties(deltaSeconds);
         this.updateEngineMovement(deltaSeconds, inputState.targetX, inputState.targetY);
+        this.updateEngineThrusters(deltaSeconds);
         this.updateCarFollow(deltaSeconds);
         this.applyDragForces(deltaSeconds);
         this.updateCouplings();
@@ -263,6 +265,28 @@ export class Train {
         }
 
         this.heatIntensity = peakHeat;
+    }
+
+    updateEngineThrusters(deltaSeconds) {
+        if (!this.engine || !this.engine.thrusterFlames) {
+            return;
+        }
+
+        this.thrusterTimer += deltaSeconds;
+        const maxSpeed = TRAIN.engineSpeed * TRAIN.boostMultiplier * this.speedMultiplier;
+        const speedRatio = maxSpeed > 0
+            ? Math.min(1, this.currentSpeed / maxSpeed)
+            : 0;
+
+        const baseAlpha = 0.15 + speedRatio * 0.75;
+        const baseScale = 0.35 + speedRatio * 0.9;
+
+        this.engine.thrusterFlames.forEach((flame, index) => {
+            const flicker = 0.85 + 0.15 * Math.sin(this.thrusterTimer * 18 + index * 1.7);
+            flame.setScale(baseScale * flicker, 0.9 + 0.1 * flicker);
+            flame.setAlpha(baseAlpha * flicker);
+            flame.setVisible(speedRatio > 0.05);
+        });
     }
 
     updateShadowPath() {
@@ -626,6 +650,80 @@ export class Train {
         heatGlow.setAlpha(0);
         heatGlow.setBlendMode(Phaser.BlendModes.ADD);
 
+        const rocketBodyWidth = width * 0.16;
+        const rocketBodyHeight = height * 0.22;
+        const rocketNozzleLength = rocketBodyWidth * 0.35;
+        const rocketNozzleHeight = rocketBodyHeight * 0.7;
+        const rocketFlameLength = rocketBodyWidth * 0.7;
+        const rocketFlameHeight = rocketBodyHeight * 0.9;
+        const cabBackX = cabX - cabWidth * 0.5;
+        const rocketBaseX = cabBackX - rocketBodyWidth * 0.3;
+        const rocketOffsets = [
+            cabY - cabHeight * 0.18,
+            cabY + cabHeight * 0.18
+        ];
+        const rocketFlames = [];
+        const rocketBodies = [];
+        const rocketNozzles = [];
+
+        rocketOffsets.forEach((offsetY) => {
+            const body = this.scene.add.rectangle(
+                rocketBaseX,
+                offsetY,
+                rocketBodyWidth,
+                rocketBodyHeight,
+                bodyColor
+            );
+            body.setStrokeStyle(2, 0x1a1a1a);
+
+            const band = this.scene.add.rectangle(
+                rocketBaseX + rocketBodyWidth * 0.15,
+                offsetY,
+                rocketBodyWidth * 0.22,
+                rocketBodyHeight * 0.5,
+                accentColor
+            );
+            band.setStrokeStyle(2, 0x1a1a1a);
+
+            const nozzle = this.scene.add.triangle(
+                0,
+                0,
+                0,
+                -rocketNozzleHeight * 0.5,
+                0,
+                rocketNozzleHeight * 0.5,
+                -rocketNozzleLength,
+                0,
+                accentColor
+            );
+            nozzle.setOrigin(0, 0.5);
+            nozzle.x = rocketBaseX - rocketBodyWidth * 0.5 + 1;
+            nozzle.y = offsetY;
+            nozzle.setStrokeStyle(2, 0x1a1a1a);
+
+            const flame = this.scene.add.triangle(
+                0,
+                0,
+                0,
+                -rocketFlameHeight * 0.5,
+                0,
+                rocketFlameHeight * 0.5,
+                -rocketFlameLength,
+                0,
+                0xffb36b
+            );
+            flame.setOrigin(0, 0.5);
+            flame.x = nozzle.x - rocketNozzleLength + 2;
+            flame.y = offsetY;
+            flame.setAlpha(0.35);
+            flame.setBlendMode(Phaser.BlendModes.ADD);
+            flame.setVisible(false);
+
+            rocketFlames.push(flame);
+            rocketBodies.push(body, band);
+            rocketNozzles.push(nozzle);
+        });
+
         const wheelPositions = [
             cabX - cabWidth * 0.1,
             boilerX - boilerWidth * 0.25,
@@ -644,6 +742,9 @@ export class Train {
 
         container.add([
             ...engineWheels,
+            ...rocketFlames,
+            ...rocketNozzles,
+            ...rocketBodies,
             boiler,
             cab,
             plowGlow,
@@ -674,7 +775,8 @@ export class Train {
             accentGlowParts,
             container,
             heat: 0,
-            heatGlow
+            heatGlow,
+            thrusterFlames: rocketFlames
         };
     }
 

@@ -239,6 +239,9 @@ export async function submitRemoteHighscore(runData, playerName, meta = {}) {
     if (!isRemoteHighscoreEnabled()) {
         return { ok: false, reason: 'disabled' };
     }
+    if (runData && runData.devConsoleUsed) {
+        return { ok: false, reason: 'dev-console' };
+    }
 
     const config = getHighscoreConfig();
     const name = sanitizeHighscoreName(playerName);
@@ -258,7 +261,8 @@ export async function submitRemoteHighscore(runData, playerName, meta = {}) {
     };
 
     try {
-        const response = await fetchWithTimeout(config.endpoint, {
+        const url = new URL(config.endpoint, window.location.origin).toString();
+        const response = await fetchWithTimeout(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'omit',
@@ -267,7 +271,8 @@ export async function submitRemoteHighscore(runData, playerName, meta = {}) {
         }, Number.isFinite(config.requestTimeoutMs) ? config.requestTimeoutMs : 6000);
 
         if (!response.ok) {
-            return { ok: false, reason: 'http-error' };
+            CACHE.lastError = new Error(`Highscore submit failed: ${response.status}`);
+            return { ok: false, reason: `http-${response.status}` };
         }
 
         const data = await response.json().catch(() => ({}));
@@ -279,6 +284,7 @@ export async function submitRemoteHighscore(runData, playerName, meta = {}) {
             rank: Number.isFinite(data.rank) ? data.rank : null
         };
     } catch (error) {
+        CACHE.lastError = error;
         return { ok: false, reason: 'network-error' };
     }
 }

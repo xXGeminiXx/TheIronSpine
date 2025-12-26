@@ -38,9 +38,9 @@ export class SettingsScene extends Phaser.Scene {
 
         // v1.5.0 Scrollable settings area
         const scrollX = width * 0.15;
-        const scrollY = height * 0.2;
+        const scrollTop = height * 0.23;
         const scrollWidth = width * 0.7;
-        const scrollHeight = height * 0.6;
+        const scrollHeight = height * 0.58;
 
         const toggles = [
             { key: 'difficulty', label: 'Difficulty', desc: 'Easy / Normal / Hard', type: 'difficulty' },
@@ -59,19 +59,20 @@ export class SettingsScene extends Phaser.Scene {
 
         // Calculate content height
         const spacing = 60; // Space between each toggle
-        const contentHeight = toggles.length * spacing;
+        const contentPadding = 24;
+        const contentHeight = toggles.length * spacing + contentPadding * 2;
 
         // Create scrollbar
         this.scrollbar = new Scrollbar(this, {
             x: scrollX,
-            y: scrollY,
+            y: scrollTop,
             width: scrollWidth,
             height: scrollHeight,
             contentHeight: contentHeight
         });
 
         // Create toggles inside scrollable content
-        let currentY = 0;
+        let currentY = contentPadding;
         toggles.forEach((toggle, index) => {
             const y = currentY;
 
@@ -91,7 +92,10 @@ export class SettingsScene extends Phaser.Scene {
             descText.setResolution(RENDER.textResolution);
 
             text.setInteractive({ useHandCursor: true });
-            text.on('pointerdown', () => {
+            text.on('pointerup', () => {
+                if (this.scrollbar && this.scrollbar.consumeDragFlag()) {
+                    return;
+                }
                 if (toggle.type === 'cycle') {
                     cycleUiScale();
                 } else if (toggle.type === 'difficulty') {

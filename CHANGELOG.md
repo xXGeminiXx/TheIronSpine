@@ -43,6 +43,28 @@ When updating this game, follow these conventions:
 
 ---
 
+## [2.1.0] - 2025-12-26 (HUD + Indicator Polish)
+
+### Added
+- Hold-ALT hotkey overlay with on-screen hint.
+- Toy engine thrusters with speed-based flame flicker.
+- Off-screen indicators for pickups and station events with distance-based shafts and color fade.
+
+### Changed
+- Off-screen indicator visuals refined for stronger directionality and distance legibility.
+- Station event lanes oriented to train direction with rotated lane flash feedback.
+- Right-side HUD text now right-aligned with fixed wrapping to keep it on-screen.
+
+### Fixed
+- Station events no longer auto-complete too early between waves.
+- Settings menu scroll area padding and drag scrolling reliability.
+- End screen stat layout overlap (bests, leaderboard, scrap).
+- Overdrive pulse clears enemy projectiles; friendly shots can cancel enemy shots.
+- Highscore submission blocked after dev console opens with clearer API error messaging.
+- Low-health warning toned down to reduce annoyance.
+
+---
+
 ## [2.0.3] - 2025-12-26 (Threat Indicator Visuals)
 
 ### Changed
