@@ -120,12 +120,23 @@ const BEHAVIORS = [
 /**
  * Generate a procedural boss configuration.
  * @param {number} difficulty - Boss difficulty tier (1-5)
+ * @param {object} rng - Optional seeded RNG (for reproducible runs)
  * @returns {object} Boss configuration
  */
-export function generateBoss(difficulty = 1) {
-    const bodyType = BODY_TYPES[Math.floor(Math.random() * BODY_TYPES.length)];
-    const size = bodyType.sizeRange.min +
-        Math.random() * (bodyType.sizeRange.max - bodyType.sizeRange.min);
+export function generateBoss(difficulty = 1, rng = null) {
+    // Fallback RNG if none provided (matches pattern in spawner.js and world-gen.js)
+    if (!rng) {
+        rng = {
+            next: () => Math.random(),
+            nextInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            nextFloat: (min, max) => Math.random() * (max - min) + min,
+            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            chance: (prob) => Math.random() < prob
+        };
+    }
+
+    const bodyType = rng.choice(BODY_TYPES);
+    const size = rng.nextFloat(bodyType.sizeRange.min, bodyType.sizeRange.max);
 
     // Scale stats with difficulty
     const hpScale = 1 + difficulty * 0.5;
@@ -135,18 +146,18 @@ export function generateBoss(difficulty = 1) {
     const mountCount = Math.min(1 + Math.floor(difficulty / 2), 3);
     const mounts = [];
     for (let i = 0; i < mountCount; i++) {
-        mounts.push(WEAPON_MOUNTS[Math.floor(Math.random() * WEAPON_MOUNTS.length)]);
+        mounts.push(rng.choice(WEAPON_MOUNTS));
     }
 
     // Select behavior pattern (3-4 phases)
-    const phaseCount = 3 + Math.floor(Math.random() * 2);
+    const phaseCount = 3 + rng.nextInt(0, 1);
     const phases = [];
     for (let i = 0; i < phaseCount; i++) {
-        phases.push(BEHAVIORS[Math.floor(Math.random() * BEHAVIORS.length)]);
+        phases.push(rng.choice(BEHAVIORS));
     }
 
     // Weak points (0-2)
-    const weakPointCount = Math.floor(Math.random() * 3);
+    const weakPointCount = rng.nextInt(0, 2);
     const weakPoints = [];
     for (let i = 0; i < weakPointCount; i++) {
         const angle = (i / weakPointCount) * Math.PI * 2;
@@ -181,8 +192,9 @@ export function generateBoss(difficulty = 1) {
  * @param {object} config - Boss config
  * @param {object} position - Spawn position {x, y}
  * @param {function} onComplete - Callback when sequence finishes
+ * @param {object} rng - Optional seeded RNG (for reproducible runs)
  */
-export function cinematicBossArrival(scene, config, position, onComplete) {
+export function cinematicBossArrival(scene, config, position, onComplete, rng = null) {
     const { width, height } = scene.scale;
 
     // Phase 1: Searchlights sweep (500ms)
@@ -251,7 +263,7 @@ export function cinematicBossArrival(scene, config, position, onComplete) {
                 armorColor: 0x000000,
                 coreColor: 0x333333,
                 trimColor: 0x666666
-            });
+            }, rng);
             silhouette.setAlpha(0);
             scanContainer.add(silhouette);
 
@@ -284,15 +296,27 @@ export function cinematicBossArrival(scene, config, position, onComplete) {
  * @param {object} scene - Phaser scene
  * @param {object} config - Boss config from generateBoss()
  * @param {object} position - Spawn position {x, y}
+ * @param {object} rng - Optional seeded RNG (for reproducible runs)
  * @returns {object} Boss entity
  */
-export function spawnBoss(scene, config, position) {
+export function spawnBoss(scene, config, position, rng = null) {
+    // Fallback RNG if none provided
+    if (!rng) {
+        rng = {
+            next: () => Math.random(),
+            nextInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            nextFloat: (min, max) => Math.random() * (max - min) + min,
+            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            chance: (prob) => Math.random() < prob
+        };
+    }
+
     // Create visual container
     const container = scene.add.container(position.x, position.y);
     container.setDepth(BOSS_DEPTH);
 
     // Draw body
-    const body = createBossBody(scene, config);
+    const body = createBossBody(scene, config, rng);
     container.add(body);
 
     // Draw weak points
@@ -352,7 +376,7 @@ export function spawnBoss(scene, config, position) {
         attackCooldown: 0,
 
         // Behavior data
-        orbitAngle: Math.random() * Math.PI * 2,
+        orbitAngle: rng.nextFloat(0, Math.PI * 2),
         summonCooldown: 0,
 
         // v1.5.1 Phase transitions
@@ -490,7 +514,18 @@ function executeSummon(boss, deltaSeconds) {
     // Note: Actual minion spawning would be handled by spawner system
 }
 
-function createBossBody(scene, config) {
+function createBossBody(scene, config, rng = null) {
+    // Fallback RNG if none provided
+    if (!rng) {
+        rng = {
+            next: () => Math.random(),
+            nextInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            nextFloat: (min, max) => Math.random() * (max - min) + min,
+            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            chance: (prob) => Math.random() < prob
+        };
+    }
+
     const graphics = scene.add.graphics();
 
     // Draw main body polygon
@@ -499,7 +534,7 @@ function createBossBody(scene, config) {
     for (let i = 0; i < sides; i++) {
         const angle = (i / sides) * Math.PI * 2;
         const radius = config.size * (config.bodyType.irregular
-            ? (0.9 + Math.random() * 0.2)
+            ? rng.nextFloat(0.9, 1.1)
             : 1.0);
         points.push({
             x: Math.cos(angle) * radius,

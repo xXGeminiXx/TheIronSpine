@@ -39,6 +39,172 @@ When updating this game, follow these conventions:
 
 ## [Unreleased]
 
+- No unreleased changes recorded.
+
+---
+
+## [2.0.0] - 2025-12-27 (Meta Systems Expansion)
+
+### Added
+- **Prestige System**: Scrap-based meta-progression with 7 upgrade paths
+  - Earn scrap from all runs (waves cleared, kills, merges)
+  - 7 upgrade categories: Starting Arsenal, Heavy Munitions, Rapid Cycling, Reinforced Core, Armored Plating, Supply Routes, Quality Control
+  - Exponential cost scaling + persistent localStorage storage
+  - Bonuses apply to damage/fire rate/HP and starting cars
+- **Challenge Modes**: 8 variant rulesets with dedicated selection scene
+  - Speed Run, Purist, Glass Cannon, Color Lock (Red/Blue/Yellow/Purple/Orange)
+  - Challenge completion tracked via achievements (8 new challenges)
+- **Procedural Achievement Pop-Ups**: Medal-style UI with procedural ribbons, stars, and animation
+- **Ghost Replay System**: Local replay of best run with milestone comparisons and settings toggle
+- **Station Events**: 3-lane buff gates every 8 waves (fire rate, repair, speed)
+
+### Technical
+- Added `PRESTIGE`, `GHOST_REPLAY`, and `STATION_EVENTS` configuration sections in `src/config.js`.
+- Challenge mode modifiers wired into spawner and game loop.
+- Achievement popups moved into a dedicated system for reuse.
+
+### Files Added
+- `src/systems/prestige.js`
+- `src/modes/challenge-modes.js`
+- `src/scenes/challenge-scene.js`
+- `src/systems/ghost.js`
+- `src/systems/achievement-popup.js`
+- `src/systems/station-events.js`
+- `src/systems/synergy.js` (scaffold only; integration pending)
+
+### Files Modified
+- `src/config.js` (prestige, station events, ghost replay, version bump)
+- `src/scenes/game-scene.js` (prestige bonuses, challenge modes, ghost replay, station events)
+- `src/scenes/end-scene.js` (prestige scrap award + achievement popups)
+- `src/scenes/settings-scene.js` (ghost replay toggle)
+- `src/scenes/menu-scene.js` (challenge mode entry point)
+- `src/systems/spawner.js` (challenge modifiers, station event spawns)
+- `src/systems/achievements.js` (challenge achievements)
+- `src/systems/hud.js` (station event buffs display)
+
+### Notes
+- Prestige upgrade purchase UI/menu is not implemented yet (scrap is earned and stored).
+- Color synergy system exists but is not wired into combat or HUD yet.
+- Coupling tension system is config-only; no runtime behavior.
+- Adaptive difficulty, dynamic camera effects, event log system, and rail signal system remain unstarted.
+- Procedural weapon sounds are partial (basic per-color tones only).
+
+---
+
+## [1.6.1] - 2025-12-27 (Highscore Arcade Upgrade)
+
+### Added
+- Epic highscore scene UI with scanline atmosphere, filters, refresh, and formatted columns.
+- In-game highscore name entry overlay (no prompt), with cursor blink, char counter, and cancel/submit.
+- Host-aware highscore config overrides (localStorage or `window.IRON_SPINE_HIGHSCORES`).
+- Highscore scoreboard now includes highest tier and score formula display.
+- Cloudflare Worker sample for `/api/highscores` (anonymous, upsert-by-name).
+
+### Files Added
+- `src/scenes/highscore-scene.js`
+- `server/highscores-worker.js`
+- `server/README.md`
+
+### Files Modified
+- `src/config.js` (highscore host override flags + version bump)
+- `src/systems/remote-highscores.js` (overrides, cache/error tracking, saved name, forced refresh)
+- `src/scenes/end-scene.js` (arcade-style submission overlay)
+- `src/scenes/menu-scene.js` (highscore menu button remains host-gated)
+- `src/main.js` (highscore scene registration)
+
+---
+
+## [1.6.0] - 2025-12-27 (Seeded Runs & Reproducibility)
+
+### Added
+- **Seeded Run System**: Reproducible gameplay for competitive runs and sharing
+  - URL seed parameter support (`?seed=ABCD1234`) for exact run recreation
+  - Daily seed system (changes once per day) for community challenges
+  - Random seed generation for variety
+  - Seed displayed on HUD (top-left, small text) during gameplay
+  - Seed displayed on end screen with click-to-copy functionality
+  - Seed type indicator (url/daily/random) for context
+  - Full configuration via `SEEDING` config section
+- **Seed Manager**: Centralized seed state management
+  - Consistent seed across scene transitions
+  - Seed registry storage for end screen access
+  - Clean API for seed initialization and retrieval
+- **Seeded RNG**: Deterministic random number generation
+  - SeededRandom class with LCG algorithm (glibc parameters)
+  - Replaces Math.random() for reproducible spawns
+  - Integration points: spawner.js, world-gen.js, boss-gen.js
+- **Interactive Seed Display**: End screen seed with copy-to-clipboard
+  - Click seed to copy to clipboard (modern browsers)
+  - Visual feedback: green flash + "COPIED!" confirmation
+  - Fallback to prompt dialog for older browsers
+  - Hover effects for discoverability
+
+### Configuration
+- `SEEDING.enabled` - Enable/disable seeded runs (default: true)
+- `SEEDING.useDailySeed` - Use daily seed by default (default: false)
+- `SEEDING.showSeedOnHUD` - Display seed during gameplay (default: true)
+- `SEEDING.showSeedOnEndScreen` - Display seed on results screen (default: true)
+- `SEEDING.allowURLSeeds` - Allow URL parameter override (default: true)
+
+### Files Added
+- `src/core/seeded-random.js` - Seeded RNG implementation
+- `src/core/seed-manager.js` - Seed lifecycle management
+
+### Files Modified
+- `src/config.js` (SEEDING configuration, v1.6.0 version bump)
+- `src/scenes/game-scene.js` (seed manager initialization, RNG integration)
+- `src/scenes/end-scene.js` (seed display with copy functionality)
+- `src/systems/spawner.js` (seeded RNG for enemy/pickup spawns)
+- `src/art/world-gen.js` (seeded RNG for procedural world)
+- `src/systems/boss-gen.js` (seeded RNG for procedural bosses)
+- `src/systems/hud.js` (seed display on HUD)
+- `CHANGELOG.md` (this entry)
+- `ideas.md` (marked Seeded Runs as [DONE])
+
+### Use Cases
+- **Competitive Play**: Share seeds for fair competition
+- **Speedrunning**: Verify runs with identical spawns
+- **Bug Reports**: Reproduce exact game states for debugging
+- **Community Challenges**: Daily seed leaderboards
+- **Content Creation**: Showcase specific interesting runs
+
+---
+
+## [1.5.4] - 2025-12-27 (Remote Highscores)
+
+### Added
+- Host-locked remote highscores with anonymous submissions (25-char names, safely escaped).
+- Highscore scene and menu button (only visible on the official host).
+- End-screen highscore submission prompt with status messaging.
+
+### Files Added
+- `src/systems/remote-highscores.js`
+- `src/scenes/highscore-scene.js`
+
+### Files Modified
+- `src/config.js` (remote highscores config + version bump)
+- `src/main.js` (highscore scene registration)
+- `src/scenes/menu-scene.js` (highscore button)
+- `src/scenes/end-scene.js` (submit prompt + submission flow)
+
+---
+
+## [1.5.3] - 2025-12-27 (Leaderboard + Fair Play)
+
+### Added
+- Persistent local leaderboard (top runs) with tamper-evident signatures.
+- Dev console usage tracking to disqualify runs from leaderboard.
+- Menu leaderboard summary and end-screen leaderboard status messaging.
+
+### Files Added
+- `src/systems/leaderboard.js`
+
+### Files Modified
+- `src/scenes/game-scene.js` (dev console usage flag + run metadata)
+- `src/systems/dev-console.js` (usage callbacks for fair-play tracking)
+- `src/scenes/end-scene.js` (leaderboard recording + status text)
+- `src/scenes/menu-scene.js` (leaderboard summary display)
+
 ---
 
 ## [1.5.2] - 2025-12-26 (Balance + Infinite Scaling)
@@ -512,6 +678,11 @@ All new systems configurable via `src/config.js`:
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v1.6.0 | 2025-12-27 | Seeded runs (URL/daily/random), seed manager, reproducible gameplay, click-to-copy seed |
+| v1.5.4 | 2025-12-27 | Remote highscores, host-locked submissions, highscore scene |
+| v1.5.3 | 2025-12-27 | Local leaderboard, fair-play tracking, dev console usage gating |
+| v1.5.2 | 2025-12-26 | Balance audit, infinite scaling, power scaling, headlight vacuum |
+| v1.5.1 | 2025-12-25 | Boss cinematics, phase transitions, damage numbers, magnetism, debris |
 | v1.5.0 | 2025-12-25 | 100 waves, 4 difficulties (+ Insane), endless goals, 10 new achievements, scrollbar, Continue option |
 | v1.4.0 | 2025-12-25 | Telegraphs, combos, crits, weather, procedural bosses, screen effects |
 | v1.3.0 | 2025-12-25 | Parallax world, unique projectiles, tutorial revamp, HUD fixes |

@@ -93,18 +93,18 @@ const DEBRIS_GENERATORS = {
      * Destroyed vehicle hulk - burned out cars/trucks.
      * Creates a recognizable vehicle silhouette with damage.
      */
-    vehicleWreck(scene) {
+    vehicleWreck(scene, rng) {
         const container = scene.add.container(0, 0);
         const colors = WORLD_CONFIG.colors;
 
         // Main chassis
-        const bodyWidth = 40 + Math.random() * 20;
-        const bodyHeight = 16 + Math.random() * 8;
+        const bodyWidth = 40 + rng.nextFloat(0, 20);
+        const bodyHeight = 16 + rng.nextFloat(0, 8);
         const body = scene.add.rectangle(0, 0, bodyWidth, bodyHeight, colors.debrisBase);
         body.setStrokeStyle(1, colors.debrisDark);
 
         // Cab section (if truck-like)
-        const hasCab = Math.random() > 0.5;
+        const hasCab = rng.chance(0.5);
         if (hasCab) {
             const cabWidth = bodyWidth * 0.3;
             const cabHeight = bodyHeight * 0.8;
@@ -125,23 +125,23 @@ const DEBRIS_GENERATORS = {
         const wheelRight = scene.add.circle(bodyWidth * 0.3, bodyHeight * 0.3, wheelRadius, colors.debrisDark);
 
         // Damage marks - random scratches
-        const scratchCount = Math.floor(Math.random() * 3) + 1;
+        const scratchCount = rng.nextInt(1, 4);
         for (let i = 0; i < scratchCount; i++) {
             const scratch = scene.add.rectangle(
-                (Math.random() - 0.5) * bodyWidth * 0.8,
-                (Math.random() - 0.5) * bodyHeight * 0.6,
+                (rng.next() - 0.5) * bodyWidth * 0.8,
+                (rng.next() - 0.5) * bodyHeight * 0.6,
                 bodyWidth * 0.2,
                 2,
                 colors.debrisDark
             );
-            scratch.setRotation(Math.random() * Math.PI);
+            scratch.setRotation(rng.nextFloat(0, Math.PI));
             container.add(scratch);
         }
 
         container.add([body, wheelLeft, wheelRight]);
 
         // Random rotation for variety
-        container.setRotation((Math.random() - 0.5) * 0.3);
+        container.setRotation((rng.next() - 0.5) * 0.3);
 
         return container;
     },
@@ -150,17 +150,17 @@ const DEBRIS_GENERATORS = {
      * Warning sign - triangular danger markers.
      * Adds a splash of yellow to break up the monotony.
      */
-    warningSign(scene) {
+    warningSign(scene, rng) {
         const container = scene.add.container(0, 0);
         const colors = WORLD_CONFIG.colors;
 
         // Post
-        const postHeight = 30 + Math.random() * 15;
+        const postHeight = 30 + rng.nextFloat(0, 15);
         const post = scene.add.rectangle(0, postHeight * 0.3, 4, postHeight, colors.debrisBase);
         post.setStrokeStyle(1, colors.debrisDark);
 
         // Triangle sign
-        const signSize = 16 + Math.random() * 8;
+        const signSize = 16 + rng.nextFloat(0, 8);
         const sign = scene.add.triangle(
             0,
             -postHeight * 0.2,
@@ -172,8 +172,8 @@ const DEBRIS_GENERATORS = {
         sign.setStrokeStyle(2, colors.debrisDark);
 
         // Maybe the sign is damaged/tilted
-        if (Math.random() > 0.6) {
-            container.setRotation((Math.random() - 0.5) * 0.5);
+        if (rng.chance(0.4)) {
+            container.setRotation((rng.next() - 0.5) * 0.5);
         }
 
         container.add([post, sign]);
@@ -184,31 +184,31 @@ const DEBRIS_GENERATORS = {
      * Metal debris pile - scattered junk.
      * Abstract shapes that suggest industrial waste.
      */
-    debrisPile(scene) {
+    debrisPile(scene, rng) {
         const container = scene.add.container(0, 0);
         const colors = WORLD_CONFIG.colors;
 
-        const pieceCount = Math.floor(Math.random() * 4) + 2;
+        const pieceCount = rng.nextInt(2, 6);
         for (let i = 0; i < pieceCount; i++) {
-            const isRect = Math.random() > 0.4;
-            const offsetX = (Math.random() - 0.5) * 30;
-            const offsetY = (Math.random() - 0.5) * 20;
-            const color = Math.random() > 0.5 ? colors.debrisBase : colors.debrisAccent;
+            const isRect = rng.chance(0.6);
+            const offsetX = (rng.next() - 0.5) * 30;
+            const offsetY = (rng.next() - 0.5) * 20;
+            const color = rng.chance(0.5) ? colors.debrisBase : colors.debrisAccent;
 
             let piece;
             if (isRect) {
-                const width = 8 + Math.random() * 16;
-                const height = 4 + Math.random() * 10;
+                const width = 8 + rng.nextFloat(0, 16);
+                const height = 4 + rng.nextFloat(0, 10);
                 piece = scene.add.rectangle(offsetX, offsetY, width, height, color);
             } else {
-                const radius = 4 + Math.random() * 8;
-                const sides = Math.floor(Math.random() * 3) + 3; // 3-5 sides
+                const radius = 4 + rng.nextFloat(0, 8);
+                const sides = rng.nextInt(3, 6); // 3-5 sides
                 piece = scene.add.polygon(offsetX, offsetY,
-                    this.generatePolygonPoints(radius, sides), color);
+                    DEBRIS_GENERATORS.generatePolygonPoints(radius, sides, rng), color);
             }
 
             piece.setStrokeStyle(1, colors.debrisDark);
-            piece.setRotation(Math.random() * Math.PI * 2);
+            piece.setRotation(rng.nextFloat(0, Math.PI * 2));
             container.add(piece);
         }
 
@@ -219,12 +219,12 @@ const DEBRIS_GENERATORS = {
      * Rail track segment - broken railway pieces.
      * Reinforces the train theme of the game.
      */
-    railSegment(scene) {
+    railSegment(scene, rng) {
         const container = scene.add.container(0, 0);
         const colors = WORLD_CONFIG.colors;
 
         // Two rails
-        const railLength = 40 + Math.random() * 30;
+        const railLength = 40 + rng.nextFloat(0, 30);
         const railSpacing = 12;
         const rail1 = scene.add.rectangle(0, -railSpacing / 2, railLength, 3, colors.rust);
         const rail2 = scene.add.rectangle(0, railSpacing / 2, railLength, 3, colors.rust);
@@ -240,7 +240,7 @@ const DEBRIS_GENERATORS = {
         container.add([rail1, rail2]);
 
         // Random rotation - could be at any angle
-        container.setRotation(Math.random() * Math.PI * 2);
+        container.setRotation(rng.nextFloat(0, Math.PI * 2));
 
         return container;
     },
@@ -249,11 +249,11 @@ const DEBRIS_GENERATORS = {
      * Crater - explosion impact marks.
      * Circular depressions suggesting past battles.
      */
-    crater(scene) {
+    crater(scene, rng) {
         const container = scene.add.container(0, 0);
         const colors = WORLD_CONFIG.colors;
 
-        const radius = 15 + Math.random() * 20;
+        const radius = 15 + rng.nextFloat(0, 20);
 
         // Outer ring (darker)
         const outer = scene.add.circle(0, 0, radius, colors.debrisDark);
@@ -264,11 +264,11 @@ const DEBRIS_GENERATORS = {
         inner.setAlpha(0.5);
 
         // Scattered debris around edge
-        const debrisCount = Math.floor(Math.random() * 4) + 2;
+        const debrisCount = rng.nextInt(2, 6);
         for (let i = 0; i < debrisCount; i++) {
-            const angle = (i / debrisCount) * Math.PI * 2 + Math.random() * 0.5;
-            const dist = radius * (0.8 + Math.random() * 0.4);
-            const size = 3 + Math.random() * 5;
+            const angle = (i / debrisCount) * Math.PI * 2 + rng.nextFloat(0, 0.5);
+            const dist = radius * (0.8 + rng.nextFloat(0, 0.4));
+            const size = 3 + rng.nextFloat(0, 5);
             const debris = scene.add.rectangle(
                 Math.cos(angle) * dist,
                 Math.sin(angle) * dist,
@@ -285,11 +285,11 @@ const DEBRIS_GENERATORS = {
     },
 
     // Helper function for polygon generation
-    generatePolygonPoints(radius, sides) {
+    generatePolygonPoints(radius, sides, rng) {
         const points = [];
         for (let i = 0; i < sides; i++) {
             const angle = (i / sides) * Math.PI * 2 - Math.PI / 2;
-            const r = radius * (0.7 + Math.random() * 0.3); // Irregular shape
+            const r = radius * (0.7 + rng.nextFloat(0, 0.3)); // Irregular shape
             points.push(Math.cos(angle) * r);
             points.push(Math.sin(angle) * r);
         }
@@ -321,9 +321,19 @@ export class WorldManager {
      * Creates the world manager and initializes all layers.
      *
      * @param {Phaser.Scene} scene - The game scene to add graphics to
+     * @param {Object} rng - Seeded RNG instance (optional)
      */
-    constructor(scene) {
+    constructor(scene, rng = null) {
         this.scene = scene;
+
+        // v1.5.3 Seeded RNG support
+        this.rng = rng || {
+            next: () => Math.random(),
+            nextInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            nextFloat: (min, max) => Math.random() * (max - min) + min,
+            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            chance: (prob) => Math.random() < prob
+        };
 
         // Track camera position for parallax calculation
         this.lastCameraX = 0;
@@ -419,8 +429,8 @@ export class WorldManager {
         let x = startX;
         while (x < totalWidth) {
             // Randomized peak spacing and height
-            const peakWidth = 150 + Math.random() * 200;
-            const peakHeight = config.baseHeight + config.heightVariation * (0.6 + Math.random() * 0.4);
+            const peakWidth = 150 + this.rng.nextFloat(0, 200);
+            const peakHeight = config.baseHeight + config.heightVariation * (0.6 + this.rng.nextFloat(0, 0.4));
 
             // Draw up to peak
             mountains.lineTo(x + peakWidth * 0.5, height - peakHeight);
@@ -441,8 +451,8 @@ export class WorldManager {
 
         x = startX + 80; // Offset from back layer
         while (x < totalWidth) {
-            const peakWidth = 100 + Math.random() * 150;
-            const peakHeight = config.baseHeight * 0.6 + config.heightVariation * 0.4 * Math.random();
+            const peakWidth = 100 + this.rng.nextFloat(0, 150);
+            const peakHeight = config.baseHeight * 0.6 + config.heightVariation * 0.4 * this.rng.nextFloat(0, 1);
 
             mountains.lineTo(x + peakWidth * 0.5, height - peakHeight);
             mountains.lineTo(x + peakWidth, height - config.baseHeight * 0.2);
@@ -515,7 +525,7 @@ export class WorldManager {
         }
 
         // Random chance to spawn
-        if (Math.random() > config.density) {
+        if (!this.rng.chance(config.density)) {
             return;
         }
 
@@ -524,9 +534,9 @@ export class WorldManager {
         const cameraRight = camera.scrollX + width;
 
         // Spawn in a band ahead of the camera
-        const spawnX = cameraRight + Math.random() * config.spawnDistance;
+        const spawnX = cameraRight + this.rng.nextFloat(0, config.spawnDistance);
         // Only spawn in the lower 40% of the screen to avoid cluttering play area
-        const spawnY = camera.scrollY + height * 0.6 + Math.random() * height * 0.4;
+        const spawnY = camera.scrollY + height * 0.6 + this.rng.nextFloat(0, height * 0.4);
 
         // Check if too close to recent spawns
         const minDistance = 80;
@@ -564,7 +574,7 @@ export class WorldManager {
      */
     spawnRandomDebris(x, y) {
         // Weighted random selection of debris type
-        let roll = Math.random() * TOTAL_WEIGHT;
+        let roll = this.rng.next() * TOTAL_WEIGHT;
         let selectedType = 'debrisPile'; // Default fallback
 
         for (const item of DEBRIS_WEIGHTS) {
@@ -581,19 +591,19 @@ export class WorldManager {
             return null;
         }
 
-        // Create the debris
-        const container = generator.call(DEBRIS_GENERATORS, this.scene);
+        // Create the debris (pass RNG to generator)
+        const container = generator.call(DEBRIS_GENERATORS, this.scene, this.rng);
 
         // Position in world space
         container.setPosition(x, y);
 
         // Random scale for variety
         const config = WORLD_CONFIG.debris;
-        const scale = config.minScale + Math.random() * (config.maxScale - config.minScale);
+        const scale = config.minScale + this.rng.nextFloat(0, config.maxScale - config.minScale);
         container.setScale(scale);
 
         // Low alpha so debris stays in background and doesn't compete with gameplay
-        container.setAlpha(0.2 + Math.random() * 0.15);
+        container.setAlpha(0.2 + this.rng.nextFloat(0, 0.15));
 
         // Add to debris layer
         this.debrisLayer.add(container);

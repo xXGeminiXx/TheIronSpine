@@ -77,7 +77,7 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 
 ## Current State (Update As Progress Happens)
 
-### Phase: Production (v1.5.2 - Live on GitHub Pages)
+### Phase: Production (v2.0.0 - Live on GitHub Pages)
 
 **Completed:**
 - Engine silhouette finalized (cartoon locomotive)
@@ -121,6 +121,15 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 - **Pickup magnetism** (v1.5.1) - 2x range when boosting, smooth collection
 - **Headlight vacuum** (v1.5.2) - Light cone pulls pickups (200), pushes enemies (150)
 - **Power scaling** (v1.5.2) - Square root car count multiplier (√100 = 2.5x damage)
+- **Persistent leaderboard** (v1.5.3) - Local top runs with dev-console eligibility gating
+- **Remote highscores** (v1.5.4) - Host-locked anonymous submissions + highscore scene
+- **Seeded runs** (v1.6.0) - Reproducible runs with daily/random seeds
+- **Highscore arcade UI** (v1.6.1) - Filters, refresh, and in-game name entry overlay
+- **Prestige system** (v2.0.0) - Scrap currency + permanent upgrade paths
+- **Challenge modes** (v2.0.0) - 8 rulesets with selection scene + achievements
+- **Ghost replay** (v2.0.0) - Local best-run ghost with milestone comparisons
+- **Procedural achievement pop-ups** (v2.0.0) - Medal visuals with ribbon + fanfare
+- **Station events** (v2.0.0) - 3-lane buff gates every 8 waves
 
 **New Art Systems (v1.3):**
 - `src/art/world-gen.js` - Parallax background with mountain terrain, debris, wrecks, signs
@@ -149,6 +158,14 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 **New Core Systems (v1.5.0):**
 - `src/core/difficulty.js` - 3-tier difficulty system (Easy/Normal/Hard) with modifiers
 - `src/ui/scrollbar.js` - Reusable scrollbar with mouse wheel, touch drag, scrollbar thumb
+
+**New Meta Systems (v2.0.0):**
+- `src/systems/prestige.js` - Scrap-based meta progression + upgrade registry
+- `src/modes/challenge-modes.js` - Challenge rulesets + modifiers
+- `src/scenes/challenge-scene.js` - Challenge selection UI scene
+- `src/systems/ghost.js` - Ghost recording, storage, rendering
+- `src/systems/achievement-popup.js` - Medal-style achievement popups
+- `src/systems/station-events.js` - Buff gate event system
 
 **New HUD Systems (v1.3 - Codex):**
 - Tier pips per car in spine readout
@@ -242,7 +259,7 @@ requestAnimationFrame(gameLoop);
 | `ideas.md` | **EXPANDED** - 30+ feature concepts with [SCAFFOLDING] implementation notes for future LLMs. Priority-organized with code location hints. |
 | `agents.md` | This file. Context for AI assistants. |
 | `CLAUDE.md` | Project-specific Claude Code instructions. Updated with development practices and game values. |
-| `CHANGELOG.md` | Version history with detailed feature documentation (v1.0.0 through v1.5.0). |
+| `CHANGELOG.md` | Version history with detailed feature documentation (v1.0.0 through v2.0.0). |
 | `INTEGRATION-GUIDE.md` | Step-by-step integration guide for v1.4.0 systems. |
 | `index.html` | Main game file for Iron Spine. |
 | `src/config.js` | Central configuration for all game values. **EXTENDED for 100 waves, milestones, difficulty.** |
@@ -250,7 +267,19 @@ requestAnimationFrame(gameLoop);
 | `src/core/` | Core game logic (train, merge, pickups, math, **difficulty**). |
 | `src/core/balance-audit.js` | Balance audit console report (scaling + TTK sanity checks). |
 | `src/systems/` | Game systems (combat, spawner, audio, hud, achievements, **telegraph, threat-indicator, combo, critical-hits, screen-effects, weather, boss-gen**). |
+| `src/systems/leaderboard.js` | Persistent leaderboard storage with dev-console eligibility gating. |
+| `src/systems/remote-highscores.js` | Host-locked remote highscores (anonymous submissions). |
+| `src/systems/prestige.js` | Prestige meta-progression system (scrap + upgrades). |
+| `src/modes/challenge-modes.js` | Challenge mode definitions + modifiers. |
+| `src/scenes/challenge-scene.js` | Challenge selection UI scene. |
+| `src/systems/ghost.js` | Ghost replay recording + rendering. |
+| `src/systems/achievement-popup.js` | Procedural medal popups for achievements. |
+| `src/systems/station-events.js` | Station event buff gates. |
+| `src/systems/synergy.js` | Color synergy scaffold (not integrated). |
+| `server/highscores-worker.js` | Cloudflare Worker API for remote highscores. |
+| `server/README.md` | Deployment notes for the highscore worker. |
 | `src/scenes/` | Phaser scenes (game, menu, end, tutorial, settings). |
+| `src/scenes/highscore-scene.js` | Remote highscores display scene. |
 | `src/ui/` | UI components (**scrollbar**). |
 
 ---

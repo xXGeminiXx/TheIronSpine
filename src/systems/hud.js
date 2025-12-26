@@ -1,4 +1,4 @@
-import { BUILD, COLORS, PALETTE, UI, OVERDRIVE, RENDER } from '../config.js';
+import { BUILD, COLORS, PALETTE, UI, OVERDRIVE, RENDER, SEEDING } from '../config.js';
 import { SETTINGS } from '../core/settings.js';
 import { formatCompact, formatNumber } from '../core/verylargenumbers.js';
 
@@ -49,6 +49,8 @@ export class Hud {
         this.killText.setScrollFactor(0);
         this.killText.setOrigin(1, 0);
         this.killText.setDepth(HUD_DEPTH);
+        // Prevent text overflow - wordWrap with right alignment
+        this.killText.setWordWrapWidth(200, false);
 
         this.waveText = scene.add.text(
             0,
@@ -108,6 +110,8 @@ export class Hud {
         this.comboText.setDepth(HUD_DEPTH + 1);
         this.comboText.setOrigin(1, 0);
         this.comboText.setAlpha(0);
+        // Prevent text overflow - wordWrap with right alignment
+        this.comboText.setWordWrapWidth(300, false);
 
         // v1.4.0 Weather display
         this.weatherText = scene.add.text(0, 0, '', {
@@ -123,6 +127,25 @@ export class Hud {
         this.weatherText.setOrigin(0.5, 0);
         this.weatherText.setAlpha(0);
 
+        // Station buff display
+        this.stationBuffText = scene.add.text(0, 0, '', {
+            fontFamily: UI.fontFamily,
+            fontSize: '18px',
+            color: '#ffcc00',
+            stroke: PALETTE.uiShadow,
+            strokeThickness: 4,
+            fontStyle: 'bold'
+        });
+        this.stationBuffText.setResolution(RENDER.textResolution);
+        this.stationBuffText.setScrollFactor(0);
+        this.stationBuffText.setDepth(HUD_DEPTH);
+        this.stationBuffText.setOrigin(0.5, 0);
+        this.stationBuffText.setAlpha(0);
+
+        this.stationBuffGraphics = scene.add.graphics();
+        this.stationBuffGraphics.setScrollFactor(0);
+        this.stationBuffGraphics.setDepth(HUD_DEPTH);
+
         this.debugText = scene.add.text(
             0,
             0,
@@ -137,6 +160,20 @@ export class Hud {
         this.debugText.setScrollFactor(0);
         this.debugText.setDepth(HUD_DEPTH);
         this.debugText.setAlpha(0);
+
+        // Seed display (v1.6.0)
+        this.seedText = scene.add.text(0, 0, '', {
+            fontFamily: UI.fontFamily,
+            fontSize: '12px',
+            color: '#888888',
+            stroke: PALETTE.uiShadow,
+            strokeThickness: 2
+        });
+        this.seedText.setResolution(RENDER.textResolution);
+        this.seedText.setScrollFactor(0);
+        this.seedText.setDepth(HUD_DEPTH);
+        this.seedText.setOrigin(0, 0);
+        this.seedText.setAlpha(0);
 
         this.damagePingGraphics = scene.add.graphics();
         this.damagePingGraphics.setScrollFactor(0);
@@ -164,6 +201,16 @@ export class Hud {
         const edgeMargin = padding + 12;
         const leftMargin = edgeMargin;
         const rightMargin = edgeMargin;
+
+        // Update text word wrap widths dynamically based on screen size
+        // This ensures text never overflows regardless of screen size
+        const maxRightTextWidth = Math.max(150, width * 0.3);
+        if (this.killText) {
+            this.killText.setWordWrapWidth(maxRightTextWidth, false);
+        }
+        if (this.comboText) {
+            this.comboText.setWordWrapWidth(maxRightTextWidth, false);
+        }
 
         this.engineLabel.setPosition(leftMargin * scale, (padding - 2) * scale);
         this.engineWeaponText.setPosition(leftMargin * scale, (padding + 16) * scale);
@@ -195,6 +242,9 @@ export class Hud {
         this.comboText.setPosition((width - rightMargin) * scale, (padding + 32) * scale);
         this.weatherText.setPosition(width * 0.5 * scale, (padding + 46) * scale);
 
+        // Station buff display (below weather)
+        this.stationBuffText.setPosition(width * 0.5 * scale, (padding + 70) * scale);
+
         if (this.debugText) {
             this.debugText.setPosition(leftMargin * scale, (height - 80) * scale);
         }
@@ -202,6 +252,11 @@ export class Hud {
             (width - rightMargin) * scale,
             height * scale - padding * scale
         );
+
+        // Position seed text below wave text
+        if (this.seedText) {
+            this.seedText.setPosition(leftMargin * scale, (padding + 90) * scale);
+        }
     }
 
     setUiScale(scale) {
@@ -227,8 +282,13 @@ export class Hud {
         this.waveText.setScale(scale);
         this.mergeText.setScale(scale);
         this.pulseText.setScale(scale);
+        this.stationBuffText.setScale(scale);
+        this.stationBuffGraphics.setScale(scale);
         this.debugText.setScale(scale);
         this.versionText.setScale(scale);
+        if (this.seedText) {
+            this.seedText.setScale(scale);
+        }
     }
 
     update(runTimeSeconds, waveStatus, deltaSeconds, overdriveState, engineWeaponState) {
@@ -258,6 +318,10 @@ export class Hud {
                 this.weatherText.setAlpha(0);
             }
         }
+
+        // Update station buff display
+        this.updateStationBuff();
+
         this.updatePulseMeter(overdriveState);
         this.updateEngineWeaponText(engineWeaponState);
         this.timerText.setText(this.formatTime(runTimeSeconds));
@@ -266,6 +330,7 @@ export class Hud {
         this.updateMergeFlash(deltaSeconds);
         this.updateDamagePings(deltaSeconds);
         this.updateDebugOverlay();
+        this.updateSeedDisplay();
     }
 
     updateEngineBar() {
@@ -407,6 +472,53 @@ export class Hud {
         if (this.mergeFlashTimer === 0) {
             this.mergeText.setText('');
         }
+    }
+
+    /**
+     * Show station buff notification and icon
+     * Called when player selects a lane at a station event
+     */
+    showStationBuff(buff) {
+        // No-op, update happens automatically via getActiveBuff()
+    }
+
+    /**
+     * Update station buff display
+     */
+    updateStationBuff() {
+        if (!this.scene.stationEvents) {
+            this.stationBuffText.setAlpha(0);
+            this.stationBuffGraphics.clear();
+            return;
+        }
+
+        const buff = this.scene.stationEvents.getActiveBuff();
+        if (!buff || buff.remaining <= 0) {
+            this.stationBuffText.setAlpha(0);
+            this.stationBuffGraphics.clear();
+            return;
+        }
+
+        // Show buff text with timer
+        const timeRemaining = Math.ceil(buff.remaining);
+        this.stationBuffText.setText(`${buff.label} (${timeRemaining}s)`);
+        this.stationBuffText.setAlpha(1);
+        this.stationBuffText.setColor(buff.color);
+
+        // Draw buff icon (simple colored circle)
+        const { width, height } = this.scene.scale;
+        const iconX = width * 0.5 - 90;
+        const iconY = UI.hudPadding + 76;
+        const iconRadius = 8;
+
+        this.stationBuffGraphics.clear();
+        this.stationBuffGraphics.fillStyle(
+            Phaser.Display.Color.HexStringToColor(buff.color).color,
+            0.7
+        );
+        this.stationBuffGraphics.fillCircle(iconX, iconY, iconRadius);
+        this.stationBuffGraphics.lineStyle(2, 0xffffff, 0.9);
+        this.stationBuffGraphics.strokeCircle(iconX, iconY, iconRadius);
     }
 
     triggerDamagePing(sourceX, sourceY, color) {
@@ -573,5 +685,25 @@ export class Hud {
             Math.round(ratio * 100)
         );
         return Phaser.Display.Color.GetColor(color.r, color.g, color.b);
+    }
+
+    updateSeedDisplay() {
+        if (!this.seedText || !SEEDING.enabled || !SEEDING.showSeedOnHUD) {
+            if (this.seedText) {
+                this.seedText.setAlpha(0);
+            }
+            return;
+        }
+
+        // Get seed from the scene's RNG or seedManager
+        let seedValue = 'RANDOM';
+        if (this.scene.seedManager && this.scene.seedManager.getSeed) {
+            seedValue = this.scene.seedManager.getSeed();
+        } else if (this.scene.rng && this.scene.rng.getSeed) {
+            seedValue = this.scene.rng.getSeed();
+        }
+
+        this.seedText.setText(`Seed: ${seedValue}`);
+        this.seedText.setAlpha(0.7);
     }
 }

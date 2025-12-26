@@ -1,4 +1,4 @@
-import { COLOR_KEYS, PROC_BOSS, SPAWN, WAVES } from '../config.js';
+import { COLOR_KEYS, PROC_BOSS, SPAWN, STATION_EVENTS, WAVES } from '../config.js';
 import { pickRandom, randomBetween, randomInt, normalizeVector } from '../core/math.js';
 import { generateBoss, spawnBoss, updateBoss, cinematicBossArrival } from './boss-gen.js';
 import { getDifficultyModifiers } from '../core/difficulty.js';
@@ -24,7 +24,7 @@ function weightedRandom(array, weights) {
 }
 
 export class Spawner {
-    constructor(scene, train, pickupManager, combatSystem, endlessMode = null, difficulty = 'normal') {
+    constructor(scene, train, pickupManager, combatSystem, endlessMode = null, difficulty = 'normal', rng = null) {
         this.scene = scene;
         this.train = train;
         this.pickupManager = pickupManager;
@@ -32,7 +32,17 @@ export class Spawner {
         this.endlessMode = endlessMode;
         this.difficulty = difficulty; // v1.5.0 Difficulty tier
         this.difficultyMods = getDifficultyModifiers(difficulty); // v1.5.0
-        this.pickupTimer = randomBetween(
+
+        // v1.5.3 Seeded RNG support
+        this.rng = rng || {
+            next: () => Math.random(),
+            nextInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            nextFloat: (min, max) => Math.random() * (max - min) + min,
+            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            chance: (prob) => Math.random() < prob
+        };
+
+        this.pickupTimer = this.rng.nextFloat(
             SPAWN.pickupSpawnMinSeconds,
             SPAWN.pickupSpawnMaxSeconds
         );
@@ -49,6 +59,37 @@ export class Spawner {
     update(deltaSeconds) {
         this.updatePickupSpawns(deltaSeconds);
         this.updateEnemySpawns(deltaSeconds);
+    }
+
+    // v1.5.3 Seeded RNG helper methods
+    randomInt(min, max) {
+        return this.rng.nextInt(min, max);
+    }
+
+    randomFloat(min, max) {
+        return this.rng.nextFloat(min, max);
+    }
+
+    randomChance(probability) {
+        return this.rng.chance(probability);
+    }
+
+    randomChoice(array) {
+        return this.rng.choice(array);
+    }
+
+    weightedRandomChoice(array, weights) {
+        const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+        let random = this.rng.next() * totalWeight;
+
+        for (let i = 0; i < array.length; i++) {
+            random -= weights[i];
+            if (random <= 0) {
+                return array[i];
+            }
+        }
+
+        return array[array.length - 1];
     }
 
     /**
@@ -68,6 +109,11 @@ export class Spawner {
     }
 
     updatePickupSpawns(deltaSeconds) {
+        // v1.6.2 Check if pickups are disabled by challenge mode
+        if (this.pickupsDisabledAfterWave !== null && this.waveNumber > this.pickupsDisabledAfterWave) {
+            return; // No more pickups after this wave
+        }
+
         this.pickupTimer -= deltaSeconds;
         if (this.pickupTimer > 0) {
             return;
@@ -91,13 +137,13 @@ export class Spawner {
 
         const countMin = Math.max(1, Math.round(SPAWN.pickupCountMin * countScale));
         const countMax = Math.max(countMin, Math.round(SPAWN.pickupCountMax * countScale));
-        const pickupCount = randomInt(countMin, countMax);
+        const pickupCount = this.randomInt(countMin, countMax);
 
         let remaining = pickupCount;
-        if (remaining >= SPAWN.pickupCaravanMinCount && Math.random() < SPAWN.pickupCaravanChance) {
+        if (remaining >= SPAWN.pickupCaravanMinCount && this.randomChance(SPAWN.pickupCaravanChance)) {
             const caravanCount = Math.min(
                 remaining,
-                randomInt(SPAWN.pickupCaravanMinCount, SPAWN.pickupCaravanMaxCount)
+                this.randomInt(SPAWN.pickupCaravanMinCount, SPAWN.pickupCaravanMaxCount)
             );
             this.spawnPickupCaravan(caravanCount);
             remaining -= caravanCount;
@@ -107,7 +153,7 @@ export class Spawner {
             this.spawnPickup();
         }
 
-        this.pickupTimer = randomBetween(
+        this.pickupTimer = this.randomFloat(
             SPAWN.pickupSpawnMinSeconds * timeScale,
             SPAWN.pickupSpawnMaxSeconds * timeScale
         );
@@ -167,7 +213,10 @@ export class Spawner {
             y: driftDirection.y * SPAWN.pickupDriftSpeed
         };
 
-        const colorKey = weightedRandom(COLOR_KEYS, this.getColorWeights());
+        // v1.6.2 Color lock for challenge mode
+        const colorKey = this.lockedColor
+            ? this.lockedColor
+            : this.weightedRandomChoice(COLOR_KEYS, this.getColorWeights());
         this.pickupManager.spawnPickup(spawnPoint, colorKey, velocity);
     }
 
@@ -203,17 +252,27 @@ export class Spawner {
 
     buildCaravanColors(count) {
         const colors = [];
-        const weights = this.getColorWeights();
-        if (count >= 2) {
-            const pairColor = weightedRandom(COLOR_KEYS, weights);
-            colors.push(pairColor, pairColor);
-            for (let i = 2; i < count; i += 1) {
-                colors.push(weightedRandom(COLOR_KEYS, weights));
+
+        // v1.6.2 Color lock for challenge mode
+        if (this.lockedColor) {
+            // All pickups are the locked color
+            for (let i = 0; i < count; i += 1) {
+                colors.push(this.lockedColor);
             }
             return colors;
         }
 
-        colors.push(weightedRandom(COLOR_KEYS, weights));
+        const weights = this.getColorWeights();
+        if (count >= 2) {
+            const pairColor = this.weightedRandomChoice(COLOR_KEYS, weights);
+            colors.push(pairColor, pairColor);
+            for (let i = 2; i < count; i += 1) {
+                colors.push(this.weightedRandomChoice(COLOR_KEYS, weights));
+            }
+            return colors;
+        }
+
+        colors.push(this.weightedRandomChoice(COLOR_KEYS, weights));
         return colors;
     }
 
@@ -279,7 +338,7 @@ export class Spawner {
         if (options.length === 0) {
             return null;
         }
-        return pickRandom(options);
+        return this.randomChoice(options);
     }
 
     buildFormationOffsets(type, count, spacing) {
@@ -396,7 +455,7 @@ export class Spawner {
                 Math.floor(this.waveNumber * PROC_BOSS.difficultyPerWave),
                 PROC_BOSS.maxDifficulty
             );
-            const bossConfig = generateBoss(difficulty);
+            const bossConfig = generateBoss(difficulty, this.rng);
 
             // v1.5.1 Cinematic boss arrival sequence
             if (this.scene.screenEffects) {
@@ -404,7 +463,7 @@ export class Spawner {
             }
 
             cinematicBossArrival(this.scene, bossConfig, spawnPoint, () => {
-                const boss = spawnBoss(this.scene, bossConfig, spawnPoint);
+                const boss = spawnBoss(this.scene, bossConfig, spawnPoint, this.rng);
 
                 // Register as special enemy with combat system
                 this.combatSystem.enemies.push({
@@ -414,7 +473,7 @@ export class Spawner {
                     baseColor: boss.config.coreColor,
                     trim: boss.config.trimColor
                 });
-            });
+            }, this.rng);
         } else {
             // Standard static enemy
             this.combatSystem.spawnEnemy(type, spawnPoint, scale);
@@ -462,22 +521,22 @@ export class Spawner {
             {
                 name: 'top',
                 normal: { x: 0, y: -1 },
-                pick: () => ({ x: randomBetween(left, right), y: top })
+                pick: () => ({ x: this.randomFloat(left, right), y: top })
             },
             {
                 name: 'bottom',
                 normal: { x: 0, y: 1 },
-                pick: () => ({ x: randomBetween(left, right), y: bottom })
+                pick: () => ({ x: this.randomFloat(left, right), y: bottom })
             },
             {
                 name: 'left',
                 normal: { x: -1, y: 0 },
-                pick: () => ({ x: left, y: randomBetween(top, bottom) })
+                pick: () => ({ x: left, y: this.randomFloat(top, bottom) })
             },
             {
                 name: 'right',
                 normal: { x: 1, y: 0 },
-                pick: () => ({ x: right, y: randomBetween(top, bottom) })
+                pick: () => ({ x: right, y: this.randomFloat(top, bottom) })
             }
         ];
 
@@ -488,7 +547,7 @@ export class Spawner {
         });
 
         const totalWeight = weights.reduce((sum, value) => sum + value, 0);
-        const roll = Math.random() * totalWeight;
+        const roll = this.rng.next() * totalWeight;
         let cumulative = 0;
         for (let index = 0; index < edges.length; index += 1) {
             cumulative += weights[index];
@@ -497,7 +556,7 @@ export class Spawner {
             }
         }
 
-        return pickRandom(edges).pick();
+        return this.randomChoice(edges).pick();
     }
 
     startWave() {
@@ -512,7 +571,7 @@ export class Spawner {
 
         this.currentFormationLabel = null;
         if (skirmisherCount >= SPAWN.enemyFormationMinCount
-            && Math.random() < SPAWN.enemyFormationChance) {
+            && this.randomChance(SPAWN.enemyFormationChance)) {
             this.currentFormationLabel = this.spawnSkirmisherFormation(
                 skirmisherCount,
                 scale
@@ -553,6 +612,13 @@ export class Spawner {
             return;
         }
 
+        // Check if we should spawn a station event
+        if (STATION_EVENTS.enabled && this.scene.stationEvents) {
+            if (this.scene.stationEvents.shouldSpawnEvent(this.waveNumber)) {
+                this.scene.stationEvents.spawnEvent(this.waveNumber);
+            }
+        }
+
         this.wavePhase = 'waiting';
         this.waveTimer = WAVES.interWaveDelaySeconds;
     }
@@ -566,7 +632,7 @@ export class Spawner {
             if (config.spawnChampion) {
                 return 'champion';
             }
-            if (Math.random() < config.eliteChance) {
+            if (this.randomChance(config.eliteChance)) {
                 return 'champion';
             }
             return null;

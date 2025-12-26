@@ -14,6 +14,7 @@ export class DevConsole {
         this.pickupManager = pickupManager;
         this.eventHandlers = eventHandlers;
         this.isOpen = false;
+        this.wasUsed = false;
 
         this.panel = scene.add.rectangle(0, 0, 520, 360, 0x101522, 0.92);
         this.panel.setStrokeStyle(2, 0x2d3b5c);
@@ -114,6 +115,7 @@ export class DevConsole {
         this.isOpen = !this.isOpen;
         this.setVisible(this.isOpen);
         if (this.isOpen) {
+            this.markUsed();
             this.refreshText();
         }
     }
@@ -143,6 +145,7 @@ export class DevConsole {
     }
 
     handleKey(code) {
+        this.markUsed();
         switch (code) {
             case 'Digit1':
             case 'Numpad1':
@@ -227,6 +230,16 @@ export class DevConsole {
                 break;
             default:
                 break;
+        }
+    }
+
+    markUsed() {
+        if (this.wasUsed) {
+            return;
+        }
+        this.wasUsed = true;
+        if (this.eventHandlers && typeof this.eventHandlers.onUsed === 'function') {
+            this.eventHandlers.onUsed();
         }
     }
 

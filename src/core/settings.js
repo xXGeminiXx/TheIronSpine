@@ -1,4 +1,4 @@
-import { DEBUG, ENDLESS } from '../config.js';
+import { DEBUG, ENDLESS, GHOST_REPLAY } from '../config.js';
 import { loadDifficulty } from './difficulty.js';
 
 export const SETTINGS = {
@@ -12,7 +12,8 @@ export const SETTINGS = {
     showRangeArcs: false,
     uiScaleIndex: 1,
     endlessMode: ENDLESS.enabled,
-    difficulty: loadDifficulty() // v1.4.0 Difficulty system
+    difficulty: loadDifficulty(), // v1.4.0 Difficulty system
+    ghostReplay: GHOST_REPLAY.enabled // v1.6.1 Ghost replay system
 };
 
 export const UI_SCALE_OPTIONS = Object.freeze([

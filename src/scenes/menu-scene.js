@@ -15,6 +15,7 @@
  *   Enter/Space - Start game
  *   T           - Open tutorial
  *   S           - Open settings
+ *   H           - Open highscores (official site only)
  */
 
 import { PALETTE, UI, RENDER, BUILD } from '../config.js';
@@ -22,6 +23,8 @@ import { SETTINGS } from '../core/settings.js';
 import { formatNumber, toNumberSafe } from '../core/verylargenumbers.js';
 import { getStatsSummary } from '../systems/stats-tracker.js';
 import { getAchievementSummary } from '../systems/achievements.js';
+import { Leaderboard, formatDuration } from '../systems/leaderboard.js';
+import { isRemoteHighscoreEnabled } from '../systems/remote-highscores.js';
 
 export class MenuScene extends Phaser.Scene {
     constructor() {
@@ -80,38 +83,35 @@ export class MenuScene extends Phaser.Scene {
         // ------------------------------------------------------------------------
         // MENU BUTTONS
         // ------------------------------------------------------------------------
-        // Adjusted positions to fit all three buttons nicely
-        const buttonStartY = height * 0.54;
-        const buttonSpacing = 0.08;
+        const buttons = [
+            { label: 'START', action: () => this.scene.start('GameScene') },
+            { label: 'CHALLENGE MODE', action: () => this.scene.start('ChallengeScene') },
+            { label: 'HOW TO PLAY', action: () => this.scene.start('TutorialScene') },
+            { label: 'SETTINGS', action: () => this.scene.start('SettingsScene') }
+        ];
 
-        // START button
-        const startText = this.add.text(width * 0.5, buttonStartY, 'START', {
-            fontFamily: UI.fontFamily,
-            fontSize: `${UI.subtitleFontSize}px`,
-            color: PALETTE.warning
-        }).setOrigin(0.5);
-        startText.setResolution(RENDER.textResolution);
-        this.makeInteractive(startText, () => this.scene.start('GameScene'));
+        this.remoteHighscoresEnabled = isRemoteHighscoreEnabled();
+        if (this.remoteHighscoresEnabled) {
+            buttons.push({ label: 'HIGHSCORES', action: () => this.scene.start('HighscoreScene') });
+        }
 
-        // HOW TO PLAY button
-        const tutorialText = this.add.text(width * 0.5, buttonStartY + height * buttonSpacing,
-            'HOW TO PLAY', {
-            fontFamily: UI.fontFamily,
-            fontSize: `${UI.subtitleFontSize}px`,
-            color: PALETTE.warning
-        }).setOrigin(0.5);
-        tutorialText.setResolution(RENDER.textResolution);
-        this.makeInteractive(tutorialText, () => this.scene.start('TutorialScene'));
+        const buttonStartY = height * 0.52;
+        const buttonSpacing = buttons.length > 3 ? 0.07 : 0.08;
 
-        // SETTINGS button
-        const settingsText = this.add.text(width * 0.5, buttonStartY + height * buttonSpacing * 2,
-            'SETTINGS', {
-            fontFamily: UI.fontFamily,
-            fontSize: `${UI.subtitleFontSize}px`,
-            color: PALETTE.warning
-        }).setOrigin(0.5);
-        settingsText.setResolution(RENDER.textResolution);
-        this.makeInteractive(settingsText, () => this.scene.start('SettingsScene'));
+        buttons.forEach((button, index) => {
+            const buttonText = this.add.text(
+                width * 0.5,
+                buttonStartY + height * buttonSpacing * index,
+                button.label,
+                {
+                    fontFamily: UI.fontFamily,
+                    fontSize: `${UI.subtitleFontSize}px`,
+                    color: PALETTE.warning
+                }
+            ).setOrigin(0.5);
+            buttonText.setResolution(RENDER.textResolution);
+            this.makeInteractive(buttonText, button.action);
+        });
 
         // ------------------------------------------------------------------------
         // PLAYER STATS SUMMARY (bottom left)
@@ -123,6 +123,11 @@ export class MenuScene extends Phaser.Scene {
         // ACHIEVEMENT PROGRESS (bottom right)
         // ------------------------------------------------------------------------
         this.createAchievementProgress(width, height);
+
+        // ------------------------------------------------------------------------
+        // LEADERBOARD SUMMARY (bottom center)
+        // ------------------------------------------------------------------------
+        this.createLeaderboardSummary(width, height);
 
         // ------------------------------------------------------------------------
         // VERSION DISPLAY (bottom center)
@@ -148,6 +153,9 @@ export class MenuScene extends Phaser.Scene {
                 }
                 if (event.code === 'KeyS') {
                     this.scene.start('SettingsScene');
+                }
+                if (event.code === 'KeyH' && this.remoteHighscoresEnabled) {
+                    this.scene.start('HighscoreScene');
                 }
             };
             this.input.keyboard.on('keydown', this.keyHandler);
@@ -249,5 +257,51 @@ export class MenuScene extends Phaser.Scene {
             lineSpacing: 2
         }).setOrigin(1, 0);
         progressText.setResolution(RENDER.textResolution);
+    }
+
+    /**
+     * Create a top runs leaderboard summary in the bottom center.
+     *
+     * @param {number} width - Screen width
+     * @param {number} height - Screen height
+     */
+    createLeaderboardSummary(width, height) {
+        const entries = Leaderboard.getTopEntries(3);
+        if (!entries.length) {
+            return;
+        }
+
+        const lines = ['TOP RUNS'];
+        entries.forEach((entry, index) => {
+            const waveText = formatNumber(entry.wavesCleared, 0);
+            const killText = formatNumber(entry.enemiesDestroyed, 0);
+            const timeText = formatDuration(entry.timeSurvived);
+            const diffTag = this.formatDifficultyTag(entry.difficulty);
+            const modeTag = entry.endless ? 'END' : 'CLS';
+            lines.push(`${index + 1}. W${waveText} K${killText} ${timeText} ${diffTag}-${modeTag}`);
+        });
+
+        const leaderboardText = this.add.text(width * 0.5, height * 0.84, lines.join('\n'), {
+            fontFamily: UI.fontFamily,
+            fontSize: '12px',
+            color: PALETTE.uiText,
+            alpha: 0.7,
+            align: 'center',
+            lineSpacing: 2
+        }).setOrigin(0.5, 1);
+        leaderboardText.setResolution(RENDER.textResolution);
+    }
+
+    formatDifficultyTag(difficulty) {
+        switch ((difficulty || 'normal').toLowerCase()) {
+            case 'easy':
+                return 'E';
+            case 'hard':
+                return 'H';
+            case 'insane':
+                return 'I';
+            default:
+                return 'N';
+        }
     }
 }

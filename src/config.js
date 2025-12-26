@@ -109,7 +109,25 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v1.5.2' // v1.5.2: Balance audit + endless scaling retune + big-number fixes
+    version: 'v2.0.0' // v2.0.0: Prestige, challenges, ghost replay, station events
+});
+
+export const SEEDING = Object.freeze({
+    // Enable seeded runs for reproducible gameplay
+    enabled: true,
+
+    // Use daily seed by default (changes once per day)
+    // If false, generates random seed per run
+    useDailySeed: false,
+
+    // Display seed on HUD (top-left, small text)
+    showSeedOnHUD: true,
+
+    // Display seed on end screen
+    showSeedOnEndScreen: true,
+
+    // Allow URL parameter override (?seed=ABCD1234)
+    allowURLSeeds: true
 });
 
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'
@@ -120,6 +138,21 @@ const RENDER_RESOLUTION = Math.min(Math.max(DEVICE_PIXEL_RATIO, 1.5), 2);
 export const RENDER = Object.freeze({
     resolution: RENDER_RESOLUTION,
     textResolution: RENDER_RESOLUTION
+});
+
+export const REMOTE_HIGHSCORE = Object.freeze({
+    // Enable only on approved hosts (ex: production domain).
+    enabled: true,
+    // Default: allow only the official host; other sites can enable via config override.
+    allowAnyHost: false,
+    allowLocalOverride: true,
+    overrideKey: 'ironspine_highscores_override',
+    allowedHosts: ['xxgeminixx.github.io'],
+    endpoint: '/api/highscores',
+    maxEntries: 10,
+    maxNameLength: 25,
+    cacheTtlMs: 30000,
+    requestTimeoutMs: 6000
 });
 
 export const CAMERA = Object.freeze({
@@ -774,6 +807,259 @@ export const PROC_BOSS = Object.freeze({
     // Weak point settings
     weakPointDamageMultiplier: 2.0,
     weakPointSize: 12
+});
+
+// ============================================================================
+// CHALLENGE MODES CONFIGURATION
+// ============================================================================
+// Special game modes with unique modifiers and rewards
+// ============================================================================
+
+export const CHALLENGES = Object.freeze({
+    // Enable challenge modes feature
+    enabled: true,
+
+    // Achievement IDs for challenge completions
+    achievements: {
+        speedRun: 'speed_demon',
+        purist: 'purist_master',
+        glassCannon: 'glass_cannon_survivor',
+        redLock: 'red_specialist',
+        blueLock: 'blue_specialist',
+        yellowLock: 'yellow_specialist',
+        purpleLock: 'purple_specialist',
+        orangeLock: 'orange_specialist'
+    },
+
+    // Reward multipliers
+    rewards: {
+        speedRun: 1.5, // 1.5x scrap
+        purist: 2.0, // 2x scrap
+        glassCannon: 1.0, // Achievement only
+        colorLock: 1.0 // Achievement only
+    }
+});
+
+// ============================================================================
+// COLOR SYNERGY SYSTEM CONFIGURATION
+// ============================================================================
+// Rewards diverse train compositions with team-up effects between colors
+// ============================================================================
+
+export const SYNERGY = Object.freeze({
+    // Enable synergy system
+    enabled: true,
+
+    // Red + Blue: Frozen targets take bonus Red damage
+    redBlue: {
+        requiredRed: 2,
+        requiredBlue: 2,
+        redBonusVsFrozen: 0.25  // +25% damage
+    },
+
+    // Blue + Yellow: Yellow pierces freeze enemies
+    blueYellow: {
+        requiredBlue: 2,
+        requiredYellow: 2,
+        freezeDuration: 2.0,    // seconds
+        freezePercent: 0.8      // 80% slow
+    },
+
+    // Red + Yellow: Yellow explosions ignite (DoT)
+    redYellow: {
+        requiredRed: 2,
+        requiredYellow: 2,
+        igniteDamagePerSecond: 5,
+        igniteDuration: 3.0     // seconds
+    },
+
+    // Tri-Force: All 3 colors present
+    triForce: {
+        requiredRed: 2,
+        requiredBlue: 2,
+        requiredYellow: 2,
+        globalFireRateBonus: 0.15  // +15% fire rate
+    }
+});
+
+// ============================================================================
+// STATION EVENTS CONFIGURATION
+// ============================================================================
+// 3-lane buff gates that spawn periodically for strategic choice
+// ============================================================================
+
+export const STATION_EVENTS = Object.freeze({
+    // Enable station events
+    enabled: true,
+
+    // Spawn frequency (every N waves)
+    spawnEveryNWaves: 8,
+
+    // Spawn distance ahead of train
+    spawnDistance: 600,
+
+    // Gate dimensions
+    gateWidth: 300, // Total width of all 3 lanes
+    laneWidth: 100, // Width of each lane
+    laneHeight: 120, // Height of gate passage
+
+    // Approach warning
+    approachWarningDistance: 400,
+    warningPulseSpeed: 4,
+
+    // Label styling
+    labelFontSize: 20,
+
+    // Buff definitions
+    buffs: {
+        fireRate: {
+            value: 0.30, // +30% fire rate
+            duration: 20 // seconds
+        },
+        repair: {
+            value: 0.25, // 25% HP restore
+            duration: 0 // instant (no duration)
+        },
+        speed: {
+            value: 0.25, // +25% speed
+            duration: 20 // seconds
+        }
+    }
+});
+
+// ============================================================================
+// GHOST REPLAY CONFIGURATION
+// ============================================================================
+// Records position trail during runs and displays ghost of previous best run
+// ============================================================================
+
+export const GHOST_REPLAY = Object.freeze({
+    // Enable ghost recording and playback
+    enabled: true,
+
+    // Recording interval (milliseconds)
+    recordIntervalMs: 100,
+
+    // Maximum points to store (caps memory usage)
+    maxPoints: 120,
+
+    // Visual style
+    ghostAlpha: 0.3,        // Transparency (0-1)
+    ghostColor: 0x44aaff,   // Light blue
+    lineStyle: 'dotted',    // 'dotted' or 'solid'
+    lineWidth: 2,
+
+    // Milestone waves for time comparisons
+    milestoneWaves: [5, 10, 15, 20, 25, 50, 75, 100],
+
+    // Display settings
+    showMilestoneComparisons: true,
+    comparisonDisplayDuration: 3.5 // Seconds to show comparison text
+});
+
+// ============================================================================
+// ACHIEVEMENT POPUP CONFIGURATION
+// ============================================================================
+// Settings for procedural medal pop-ups when achievements unlock
+// ============================================================================
+
+export const ACHIEVEMENT_POPUP = Object.freeze({
+    // Position settings
+    startX: 1000, // Off-screen right
+    endX: 760,    // Final X position (right side of screen)
+    yPosition: 80, // Y position from top
+
+    // Animation timings
+    slideInDuration: 400,  // ms
+    holdDuration: 2000,     // ms
+    slideOutDuration: 300,  // ms
+
+    // Medal dimensions
+    medalRadius: 32,
+    ribbonWidth: 20,
+    ribbonHeight: 50,
+    starSize: 6,
+
+    // Visual style
+    medalShineAlpha: 0.3,
+    embossDepth: 2,
+    shadowOffset: 3,
+    shadowAlpha: 0.5,
+
+    // Depth layering
+    depth: 1000,
+
+    // Sound
+    playSound: true,
+    soundVolume: 0.3
+});
+
+// Category -> Ribbon color mapping
+export const ACHIEVEMENT_RIBBON_COLORS = Object.freeze({
+    combat: 0xff4444,    // Red
+    survival: 0x4444ff,  // Blue
+    speed: 0xffcc00,     // Yellow
+    collection: 0xaa44ff, // Purple
+    mastery: 0xff8800,   // Orange
+    hidden: 0xffffff     // White
+});
+
+// ============================================================================
+// COUPLING TENSION CONFIGURATION
+// ============================================================================
+// Tight turns increase coupling stress, boosting damage but risking HP loss
+// ============================================================================
+
+export const COUPLING_TENSION = Object.freeze({
+    // Enable coupling tension system
+    enabled: true,
+
+    // Tension calculation thresholds (0-100 scale)
+    lowThreshold: 30,    // Below this: normal state
+    mediumThreshold: 60, // Medium tension: visual feedback
+    highThreshold: 85,   // High tension: damage bonus + risk
+
+    // Damage bonus from high tension
+    damageBonus: 0.25,   // +25% damage when tension > highThreshold
+    bonusDuration: 1.0,  // Bonus lasts 1 second after tension drops
+
+    // HP penalty from sustained high tension
+    sustainedDuration: 3.0,  // Time at high tension before penalty
+    hpPenaltyPercent: 0.02,  // -2% max HP per second while sustained
+
+    // Visual effect parameters
+    glowColor: 0xff8800,     // Orange glow for stressed couplings
+    glowAlpha: 0.6,          // Max alpha for glow effect
+    stressLineColor: 0xffaa44, // Color for stress lines
+    stressLineWidth: 2,      // Width of stress lines
+    sparkParticleCount: 3,   // Sparks per coupling at extreme tension
+    sparkInterval: 0.3       // Seconds between spark bursts
+});
+
+
+// ============================================================================
+// PRESTIGE SYSTEM CONFIGURATION
+// ============================================================================
+// Meta-progression upgrades purchased with scrap earned from runs
+// ============================================================================
+
+export const PRESTIGE = Object.freeze({
+    // Enable prestige system
+    enabled: true,
+
+    // Scrap formula weights
+    scrapPerWave: 10,
+    scrapPerKill: 0.5,
+    scrapPerMerge: 5,
+
+    // Visual settings
+    showScrapOnHUD: false,  // Don't clutter HUD, show in end screen only
+    scrapNotificationDuration: 3000,  // ms
+
+    // Balance tuning
+    startingCarColors: ['red', 'blue', 'yellow'],  // Pool for starting car upgrades
+    pickupFrequencyMax: 0.25,  // Maximum -25% pickup spawn time
+    mergeTierBonusMax: 0.50    // Maximum +50% higher tier chance
 });
 
 // ============================================================================

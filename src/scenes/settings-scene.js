@@ -46,6 +46,7 @@ export class SettingsScene extends Phaser.Scene {
             { key: 'difficulty', label: 'Difficulty', desc: 'Easy / Normal / Hard', type: 'difficulty' },
             { key: 'uiScale', label: 'UI Scale', desc: 'Small / Medium / Large', type: 'cycle' },
             { key: 'endlessMode', label: 'Endless Mode', desc: 'Infinite waves (no win)' },
+            { key: 'ghostReplay', label: 'Ghost Replay', desc: 'Show previous best run ghost' },
             { key: 'screenShake', label: 'Screen Shake', desc: 'Camera effects on hits' },
             { key: 'showGrid', label: 'Grid Background', desc: 'Show ground pattern' },
             { key: 'showRangeArcs', label: 'Range Arcs', desc: 'Show car weapon ranges' },

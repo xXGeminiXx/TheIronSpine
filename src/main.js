@@ -24,8 +24,10 @@ import { GAME, PALETTE, RENDER } from './config.js';
 import { MenuScene } from './scenes/menu-scene.js';
 import { TutorialScene } from './scenes/tutorial-scene.js';
 import { SettingsScene } from './scenes/settings-scene.js';
+import { ChallengeScene } from './scenes/challenge-scene.js';
 import { GameScene } from './scenes/game-scene.js';
 import { EndScene } from './scenes/end-scene.js';
+import { HighscoreScene } from './scenes/highscore-scene.js';
 
 // ----------------------------------------------------------------------------
 // PHASER CONFIGURATION
@@ -54,8 +56,8 @@ const config = {
         width: GAME.width,
         height: GAME.height
     },
-    // Scene registration order: Menu -> Tutorial -> Settings -> Game -> End
-    scene: [MenuScene, TutorialScene, SettingsScene, GameScene, EndScene]
+    // Scene registration order: Menu -> Tutorial -> Settings -> Challenge -> Highscores -> Game -> End
+    scene: [MenuScene, TutorialScene, SettingsScene, ChallengeScene, HighscoreScene, GameScene, EndScene]
 };
 
 // Initialize the game

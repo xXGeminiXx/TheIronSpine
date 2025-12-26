@@ -173,38 +173,52 @@ Location: `src/systems/boss-gen.js` cinematicBossArrival()
 
 ## PRIORITY 4: Incremental/Meta Systems
 
-### Prestige System
-After runs, earn "Scrap" for permanent upgrades.
+### [PARTIAL] Prestige System
+**Implementation**: Scrap-based meta-progression with 7 upgrade paths (v2.0.0)
 
-**Categories**: Starting Loadout, Train Power, Durability, Luck
+**Features**:
+- Scrap earned from all runs (waves cleared, kills, merges)
+- 7 upgrade paths: Starting Arsenal, Heavy Munitions, Rapid Cycling, Reinforced Core, Armored Plating, Supply Routes, Quality Control
+- Exponential cost scaling with persistent localStorage storage
+- Bonuses applied at run start (damage/fire rate/HP/starting cars)
 
-[SCAFFOLDING]
-```
-Location: New src/systems/prestige.js
-Data: { scrap: 0, upgrades: { startingCars, damageBonus, hpBonus, luckBonus } }
-Scrap formula: wavesCleared * 10 + kills * 0.5 + merges * 5
-Store in localStorage alongside stats.
-```
+[Status] Core system + bonuses + scrap awarding implemented; purchase UI/menu is still pending.
 
-### Challenge Modes
-| Mode | Modification | Reward |
-|------|--------------|--------|
-| Speed Run | 10 waves, 2x spawn | Time bonus |
-| Purist | No pickups after wave 5 | 2x scrap |
-| Glass Cannon | 1 HP everything, 3x damage | Achievement |
-| Color Lock | Only one color spawns | Achievement |
+Location: `src/systems/prestige.js`, `src/scenes/game-scene.js`, `src/scenes/end-scene.js`, `src/config.js`
 
-### Seeded Runs
-- Display seed on HUD and end screen
-- URL parameter: `?seed=ABCD1234`
-- Daily seed same for everyone
+### [DONE] Challenge Modes
+**Implementation**: 8 challenge variants with a dedicated selection scene (v2.0.0)
 
-[SCAFFOLDING]
-```
-Location: New src/core/seeded-random.js
-Create SeededRandom class with next(), nextInt(min, max), shuffle().
-Replace Math.random() in spawner.js, world-gen.js, boss-gen.js.
-```
+**Modes**:
+- Speed Run (10 waves, 2x spawn)
+- Purist (no pickups after wave 5)
+- Glass Cannon (1 HP everything, 3x damage)
+- Color Lock: Red / Blue / Yellow / Purple / Orange only
+
+**Extras**:
+- Challenge completion tracked via achievements
+- ChallengeScene UI with descriptions + completion status
+
+Location: `src/modes/challenge-modes.js`, `src/scenes/challenge-scene.js`, `src/scenes/game-scene.js`, `src/systems/achievements.js`, `src/systems/spawner.js`
+
+### [DONE] Seeded Runs
+**Implementation**: Full seeded run system with reproducibility (v1.6.0)
+
+**Features**:
+- URL seed parameter support (`?seed=ABCD1234`)
+- Daily seed system (changes once per day)
+- Random seed generation per run
+- Seed displayed on HUD (top-left, configurable)
+- Seed displayed on end screen with click-to-copy
+- Seed type indicator (url/daily/random)
+- Full configuration via SEEDING config section
+
+**Files**:
+- `src/core/seeded-random.js` - SeededRandom class with LCG algorithm
+- `src/core/seed-manager.js` - Seed lifecycle management
+- Integration: spawner.js, world-gen.js, boss-gen.js, game-scene.js, end-scene.js, hud.js
+
+**Use Cases**: Competitive play, speedrunning, bug reproduction, daily challenges, content creation
 
 ---
 
@@ -238,7 +252,9 @@ Location: `src/systems/critical-hits.js`
 
 ## PRIORITY 6: Interactive World
 
-### Station Events
+### [DONE] Station Events
+**Implementation**: Periodic 3-lane buff gates (v2.0.0)
+
 Gate with 3 lanes, player steers through one for buff.
 | Lane | Buff | Duration |
 |------|------|----------|
@@ -246,7 +262,9 @@ Gate with 3 lanes, player steers through one for buff.
 | Center | Repair 25% HP | Instant |
 | Right | Speed +25% | 20s |
 
-### Rail Signal System (World Telemetry)
+Location: `src/systems/station-events.js`, `src/systems/spawner.js`, `src/systems/hud.js`, `src/config.js`
+
+### [UNSTARTED] Rail Signal System (World Telemetry)
 Signals appear ahead indicating upcoming events.
 - Green: Normal
 - Yellow: High spawn intensity
@@ -261,8 +279,10 @@ Signals appear ahead indicating upcoming events.
 
 ## PRIORITY 7: Train Feel
 
-### Coupling Tension Visualization
+### [PARTIAL] Coupling Tension Visualization
 Couplings stretch under tight turns. High tension = stress lines + sparks.
+
+[Status] Config stub exists in `src/config.js` (`COUPLING_TENSION`), no runtime system yet.
 
 [SCAFFOLDING]
 ```
@@ -340,29 +360,28 @@ Generate regiment emblem per run on engine plate.
 
 ## PRIORITY 10: Modern Game Design (Cutting Edge)
 
-### Ghost Train Replay System
-**Concept**: Lightweight async competition without servers.
+### [DONE] Ghost Train Replay System
+**Implementation**: Lightweight async competition without servers (v2.0.0)
 
-**Mechanics**:
-- Record position trail every 100ms (60-120 points per run)
-- Store as compressed array in localStorage
-- Display ghost outline of previous best run
-- Compare times at wave milestones
+**Features**:
+- Records engine position every 100ms (~5KB per ghost)
+- Stores in localStorage as compressed array
+- Displays ghost outline of previous best run
+- Shows time delta comparisons at wave milestones
+- Green "AHEAD" or red "BEHIND" indicators
+- Only saves new personal bests (longest survival)
+- Settings toggle for performance control
 
-[SCAFFOLDING]
-```
-Location: New src/systems/ghost.js
-Data: { positions: [{x,y,t}], seed, score, date }
-Render: Dotted line or faded train sprite following recorded path
-Storage: ~5KB per ghost in localStorage
-Enable toggle in settings for performance
-```
+**Files**:
+- `src/systems/ghost.js` - GhostRecorder, GhostStorage, GhostRenderer
+- Integrated in game-scene.js
+- Configuration in GHOST_REPLAY section
 
 **Why it works**: Players compete against themselves, creates "one more try" loop.
 
 ---
 
-### Adaptive Difficulty via Play Style Detection
+### [UNSTARTED] Adaptive Difficulty via Play Style Detection
 **Concept**: Game learns if you're aggressive vs defensive and adjusts spawns.
 
 **Detection Metrics**:
@@ -389,8 +408,10 @@ Store profile in localStorage for cross-run adaptation
 
 ---
 
-### Procedural Weapon Sound Design
+### [PARTIAL] Procedural Weapon Sound Design
 **Concept**: Each weapon tier has unique synthesized audio.
+
+[Status] Basic per-color procedural tones exist in `src/systems/audio.js`, but no tier-specific profiles or caching yet.
 
 **Parameters per Color/Tier**:
 - Red T1: Short sharp crack (200Hz, 20ms)
@@ -412,8 +433,10 @@ Play via AudioBufferSourceNode with randomized pitch variation
 
 ---
 
-### Tension-Based Damage Multiplier (Risk/Reward)
+### [PARTIAL] Tension-Based Damage Multiplier (Risk/Reward)
 **Concept**: Tight turns increase coupling tension, which boosts damage temporarily.
+
+[Status] Config stub exists in `src/config.js` (`COUPLING_TENSION`), no runtime system yet.
 
 **Mechanics**:
 - High tension (sharp turns): +25% damage for 1s after
@@ -434,7 +457,7 @@ Add coupling glow effect in render when tension > threshold
 
 ---
 
-### Dynamic Camera Effects (Cinematic Polish)
+### [UNSTARTED] Dynamic Camera Effects (Cinematic Polish)
 **Concept**: Camera responds to gameplay intensity.
 
 | Event | Camera Effect |
@@ -527,7 +550,7 @@ Volume scales with combo to avoid spam
 
 ---
 
-### Emergent Narrative through Event Logs
+### [UNSTARTED] Emergent Narrative through Event Logs
 **Concept**: Build a story from what happened during the run.
 
 **After each run, generate text like**:
@@ -645,7 +668,7 @@ Location: `src/core/pickups.js` update() method
 
 ---
 
-### Color Synergy Bonuses
+### [PARTIAL] Color Synergy Bonuses
 **Concept**: Having multiple colors provides team-up effects.
 
 **Synergies**:
@@ -654,38 +677,26 @@ Location: `src/core/pickups.js` update() method
 - 2+ Red + 2+ Yellow: Yellow explosions ignite (future Orange effect)
 - All 3 colors (2+ each): "Tri-Force" - all weapons +15% fire rate
 
-[SCAFFOLDING]
-```
-Location: New src/systems/synergy.js
-Scan train composition in update()
-Count cars per color
-Check synergy conditions
-Apply temporary buffs to relevant weapons
-Display active synergies as icons below HUD
-```
+[Status] SynergyManager + config exist (`src/systems/synergy.js`), but not wired into combat/HUD yet.
+
+Location: `src/systems/synergy.js` (integration pending)
 
 **Why it works**: Encourages diversity, rewards composition planning, depth.
 
 ---
 
-### Procedural Achievement Pop-Ups
+### [DONE] Procedural Achievement Pop-Ups
 **Concept**: Achievements appear as military medals with procedural insignia.
 
-**Achievement Visuals**:
-- Bronze/Silver/Gold/Diamond medals
-- Procedural ribbon colors based on achievement type
-- Embossed stars/bars showing tier
-- Slide in from right with military fanfare sound
-
-[SCAFFOLDING]
-```
-Location: Extend src/systems/achievements.js
-On unlock, trigger medal animation
-Generate medal graphic: circle + ribbon + stars
-Use achievement color as ribbon tint
-Tween: slide in, hold 2s, slide out
-Achievement icon persists in menu unlocked gallery
-```
+**Implementation** (v2.0.0):
+- Bronze/Silver/Gold/Diamond medals based on tier
+- Procedural ribbon graphics colored by category (combat=red, survival=blue, speed=yellow, etc.)
+- Embossed stars (1-4) showing tier progression
+- Slide-in animation from right with 2-second hold
+- Optional procedural fanfare (tier-based note sequences)
+- Queue system for multiple unlocks (staggered 800ms apart)
+- Achievement icon displayed on medal center
+- Location: `src/systems/achievement-popup.js`
 
 **Why it works**: Satisfying visual reward, no assets, clear progression.
 

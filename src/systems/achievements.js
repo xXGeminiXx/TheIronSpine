@@ -551,6 +551,100 @@ export const ACHIEVEMENT_REGISTRY = {
     ],
 
     // ========================================================================
+    // CHALLENGES - Special game mode completions (v1.6.2)
+    // ========================================================================
+    challenges: [
+        {
+            id: 'speed_demon',
+            name: 'Speed Demon',
+            description: 'Complete Speed Run challenge',
+            icon: 'SD',
+            getValue: (run) => (run.challengeMode === 'speed_run' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 100 }
+            ],
+            reward: { type: REWARD_TYPES.SPEED_BONUS, value: 5 }
+        },
+        {
+            id: 'purist_master',
+            name: 'Purist Master',
+            description: 'Complete Purist challenge',
+            icon: 'PM',
+            getValue: (run) => (run.challengeMode === 'purist' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 150 }
+            ],
+            reward: { type: REWARD_TYPES.TITLE, value: 'The Purist' }
+        },
+        {
+            id: 'glass_cannon_survivor',
+            name: 'Glass Cannon',
+            description: 'Complete Glass Cannon challenge',
+            icon: 'GC',
+            getValue: (run) => (run.challengeMode === 'glass_cannon' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 200 }
+            ],
+            reward: { type: REWARD_TYPES.TITLE, value: 'The Untouchable' }
+        },
+        {
+            id: 'red_specialist',
+            name: 'Red Specialist',
+            description: 'Complete Red Lock challenge',
+            icon: 'RS',
+            getValue: (run) => (run.challengeMode === 'color_lock_red' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 75 }
+            ],
+            reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 3 }
+        },
+        {
+            id: 'blue_specialist',
+            name: 'Blue Specialist',
+            description: 'Complete Blue Lock challenge',
+            icon: 'BS',
+            getValue: (run) => (run.challengeMode === 'color_lock_blue' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 75 }
+            ],
+            reward: { type: REWARD_TYPES.RANGE_BONUS, value: 3 }
+        },
+        {
+            id: 'yellow_specialist',
+            name: 'Yellow Specialist',
+            description: 'Complete Yellow Lock challenge',
+            icon: 'YS',
+            getValue: (run) => (run.challengeMode === 'color_lock_yellow' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 75 }
+            ],
+            reward: { type: REWARD_TYPES.FIRE_RATE_BONUS, value: 3 }
+        },
+        {
+            id: 'purple_specialist',
+            name: 'Purple Specialist',
+            description: 'Complete Purple Lock challenge',
+            icon: 'PS',
+            getValue: (run) => (run.challengeMode === 'color_lock_purple' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 75 }
+            ],
+            reward: { type: REWARD_TYPES.RANGE_BONUS, value: 3 }
+        },
+        {
+            id: 'orange_specialist',
+            name: 'Orange Specialist',
+            description: 'Complete Orange Lock challenge',
+            icon: 'OS',
+            getValue: (run) => (run.challengeMode === 'color_lock_orange' && run.result === 'victory') ? 1 : 0,
+            tiers: [
+                { threshold: 1, points: 75 }
+            ],
+            reward: { type: REWARD_TYPES.DAMAGE_BONUS, value: 3 }
+        }
+    ],
+
+    // ========================================================================
     // HIDDEN - Secret achievements
     // ========================================================================
     hidden: [
@@ -649,8 +743,13 @@ export class AchievementTracker {
         const newUnlocks = [];
 
         // Iterate all categories
-        Object.values(ACHIEVEMENT_REGISTRY).forEach(categoryAchievements => {
+        Object.entries(ACHIEVEMENT_REGISTRY).forEach(([categoryName, categoryAchievements]) => {
             categoryAchievements.forEach(achievement => {
+                // Add category to achievement object if not present
+                if (!achievement.category) {
+                    achievement.category = categoryName;
+                }
+
                 const currentValue = achievement.getValue(runData, stats);
                 const numericValue = toNumberSafe(currentValue, 0);
                 const currentTier = unlocked[achievement.id] || 0;
@@ -860,74 +959,11 @@ export class AchievementTracker {
 }
 
 // ----------------------------------------------------------------------------
-// ACHIEVEMENT NOTIFICATION RENDERER
-// ----------------------------------------------------------------------------
-// Call this from your game to show achievement popups
-// ----------------------------------------------------------------------------
-
-export function createAchievementPopup(scene, notification) {
-    const { achievement, tierInfo, points } = notification;
-    const { width, height } = scene.scale;
-
-    // Container for the popup
-    const container = scene.add.container(width * 0.5, -80);
-    container.setDepth(1000);
-    container.setScrollFactor(0);
-
-    // Background
-    const bg = scene.add.rectangle(0, 0, 280, 70, 0x000000, 0.85);
-    bg.setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(tierInfo.color).color);
-    container.add(bg);
-
-    // Tier symbol
-    const symbol = scene.add.text(-120, 0, tierInfo.symbol, {
-        fontFamily: 'Trebuchet MS, Arial, sans-serif',
-        fontSize: '28px',
-        color: tierInfo.color,
-        fontStyle: 'bold'
-    }).setOrigin(0.5);
-    container.add(symbol);
-
-    // Achievement name
-    const name = scene.add.text(-80, -12, achievement.name, {
-        fontFamily: 'Trebuchet MS, Arial, sans-serif',
-        fontSize: '18px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-    }).setOrigin(0, 0.5);
-    container.add(name);
-
-    // Tier name
-    const tier = scene.add.text(-80, 12, `${tierInfo.name} - +${points} pts`, {
-        fontFamily: 'Trebuchet MS, Arial, sans-serif',
-        fontSize: '14px',
-        color: tierInfo.color
-    }).setOrigin(0, 0.5);
-    container.add(tier);
-
-    // Animate in
-    scene.tweens.add({
-        targets: container,
-        y: 60,
-        duration: 400,
-        ease: 'Back.easeOut'
-    });
-
-    // Hold, then animate out
-    scene.tweens.add({
-        targets: container,
-        y: -80,
-        duration: 300,
-        delay: 2500,
-        ease: 'Power2',
-        onComplete: () => container.destroy()
-    });
-
-    return container;
-}
-
-// ----------------------------------------------------------------------------
 // CONVENIENCE EXPORTS
+// ----------------------------------------------------------------------------
+// NOTE: The old createAchievementPopup() function has been moved to
+//       achievement-popup.js as AchievementPopupSystem for better organization
+//       and procedural medal graphics.
 // ----------------------------------------------------------------------------
 
 export function checkAchievements(runData, stats) {

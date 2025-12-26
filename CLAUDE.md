@@ -2,7 +2,7 @@
 
 Project-specific instructions for Claude Code. These override defaults when working in this directory.
 
-## Project Status: COMPLETE (v1)
+## Project Status: COMPLETE (v2.0.0)
 
 **Live at:** https://xxgeminixx.github.io/TheIronSpine/
 
@@ -13,6 +13,11 @@ Project-specific instructions for Claude Code. These override defaults when work
 - v1.5.0: 100 waves, difficulty tiers, UI systems (2025-12-25 Late Night)
 - v1.5.1: Polish & juice (boss cinematic, phase transitions, damage numbers, magnetism)
 - v1.5.2: Balance audit + power scaling + headlight vacuum (2025-12-26)
+- v1.5.3: Local leaderboard + dev-console fair-play gating (2025-12-27)
+- v1.5.4: Remote highscores (host-locked, anonymous) (2025-12-27)
+- v1.6.1: Highscore arcade UI + host overrides (2025-12-27)
+- v1.6.1: Cloudflare Worker sample for remote highscores (2025-12-27)
+- v2.0.0: Prestige, challenge modes, ghost replay, station events, achievement popups (2025-12-27)
 
 Free, open-source, MIT licensed.
 
@@ -22,6 +27,8 @@ Free, open-source, MIT licensed.
 - **Test integration** before committing major system changes
 - **Document new config** values with inline comments
 - **Store an MCP memory summary** after major changes (code state + key ideas)
+- **Leaderboard fairness**: only record runs that did not use the dev console; keep leaderboard storage local and tamper-evident.
+- **Remote highscores**: default to official host; other deployments can enable via config/override. Submissions remain anonymous and unverified; serverless sample lives in `server/highscores-worker.js`.
 
 ## Project Summary
 

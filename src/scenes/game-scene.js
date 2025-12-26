@@ -37,6 +37,8 @@ import {
     OVERDRIVE,
     PALETTE,
     PROC_BOSS,
+    SEEDING,
+    SYNERGY,
     TRAIN,
     WEATHER
 } from '../config.js';
@@ -48,6 +50,7 @@ import { SETTINGS, getUiScale } from '../core/settings.js';
 import { getDifficultyModifiers } from '../core/difficulty.js';
 import { Train, resetSegmentIdCounter } from '../core/train.js';
 import { pickRandom } from '../core/math.js';
+import { SeededRandom, SeedManager } from '../core/seeded-random.js';
 import { InputController } from '../systems/input.js';
 import { Spawner } from '../systems/spawner.js';
 import { CombatSystem, resetCombatIdCounters } from '../systems/combat.js';
@@ -71,12 +74,14 @@ import {
 } from '../systems/endless-mode.js';
 import { addPauseOverlay } from '../systems/pause-overlay.js';
 import { getAchievementBonuses } from '../systems/achievements.js';
+import { getPrestigeBonuses } from '../systems/prestige.js';
 import { TelegraphSystem } from '../systems/telegraph.js';
 import { ThreatIndicatorSystem } from '../systems/threat-indicator.js';
 import { ComboSystem } from '../systems/combo.js';
 import { CriticalHitSystem, spawnCritEffect } from '../systems/critical-hits.js';
 import { ScreenEffectsSystem } from '../systems/screen-effects.js';
 import { WeatherSystem } from '../systems/weather.js';
+import { SynergyManager } from '../systems/synergy.js';
 import {
     generateBoss,
     spawnBoss,
@@ -84,24 +89,91 @@ import {
     getBossDamageMultiplier,
     checkWeakPointHit
 } from '../systems/boss-gen.js';
+import { getChallengeMode } from '../modes/challenge-modes.js';
+import { StationEventManager } from '../systems/station-events.js';
+import {
+    GhostRecorder,
+    GhostStorage,
+    GhostRenderer,
+    createMilestoneComparisonText
+} from '../systems/ghost.js';
 
 export class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
     }
 
-    create() {
+    create(data) {
         // Reset ID counters for clean run state
         resetSegmentIdCounter();
         resetPickupIdCounter();
         resetCombatIdCounters();
 
+        // v1.6.2 Challenge mode support
+        this.challengeMode = null;
+        if (data && data.challengeMode) {
+            this.challengeMode = getChallengeMode(data.challengeMode);
+            if (this.challengeMode) {
+                console.log(`[GameScene] Starting challenge mode: ${this.challengeMode.name}`);
+            }
+        }
+
+        // Initialize seeded RNG for reproducible runs
+        if (SEEDING.enabled) {
+            if (!this.registry.has('seedManager')) {
+                // Create seed manager if it doesn't exist
+                this.seedManager = new SeedManager();
+                const seed = SEEDING.allowURLSeeds
+                    ? this.seedManager.initialize(SEEDING.useDailySeed)
+                    : SEEDING.useDailySeed
+                        ? SeededRandom.getDailySeed()
+                        : SeededRandom.generateSeed();
+
+                this.seedManager.currentSeed = seed;
+                this.seedManager.seedType = SEEDING.allowURLSeeds && SeededRandom.getSeedFromURL()
+                    ? 'url'
+                    : SEEDING.useDailySeed
+                        ? 'daily'
+                        : 'random';
+
+                this.registry.set('seedManager', this.seedManager);
+            } else {
+                // Reuse existing seed manager
+                this.seedManager = this.registry.get('seedManager');
+            }
+
+            // Create RNG instance for this run
+            this.rng = new SeededRandom(this.seedManager.getSeed());
+            console.log(`[GameScene] Using seed: ${this.seedManager.getSeed()} (${this.seedManager.getSeedType()})`);
+        } else {
+            // No seeding - use Math.random wrapper
+            this.rng = {
+                next: () => Math.random(),
+                nextInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+                nextFloat: (min, max) => Math.random() * (max - min) + min,
+                choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+                chance: (prob) => Math.random() < prob,
+                shuffle: (arr) => {
+                    const copy = [...arr];
+                    for (let i = copy.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [copy[i], copy[j]] = [copy[j], copy[i]];
+                    }
+                    return copy;
+                },
+                getSeed: () => 'RANDOM'
+            };
+            this.seedManager = null;
+        }
+
         this.runTimeSeconds = 0;
         this.isGameOver = false;
+        this.devConsoleUsed = false;
         this.setupBackground();
 
         // Initialize the parallax world system for visual depth
-        this.worldManager = new WorldManager(this);
+        // v1.5.3 Pass seeded RNG for deterministic world generation
+        this.worldManager = new WorldManager(this, this.rng);
 
         const startX = 0;
         const startY = 0;
@@ -121,6 +193,9 @@ export class GameScene extends Phaser.Scene {
         });
         this.train.setSpeedMultiplier(this.bonusMultipliers.speed);
         this.train.setHpMultiplier(finalHpMultiplier);
+
+        // Apply prestige starting cars bonus
+        this.applyPrestigeStartingCars();
 
         this.inputController = new InputController(this);
         this.audio = new AudioManager(this);
@@ -157,13 +232,15 @@ export class GameScene extends Phaser.Scene {
             }
         });
         // v1.5.0 Pass difficulty to spawner for modifiers
+        // v1.5.3 Pass seeded RNG for reproducible runs
         this.spawner = new Spawner(
             this,
             this.train,
             this.pickupManager,
             this.combatSystem,
             this.endlessMode,
-            SETTINGS.difficulty
+            SETTINGS.difficulty,
+            this.rng
         );
         this.mergeManager = new MergeManager(this, this.train, {
             onMergeCompleted: (...args) => this.onMergeCompleted(...args)
@@ -188,7 +265,10 @@ export class GameScene extends Phaser.Scene {
                 this.combatSystem,
                 this.pickupManager,
                 {
-                    onWin: () => this.endRun('victory')
+                    onWin: () => this.endRun('victory'),
+                    onUsed: () => {
+                        this.devConsoleUsed = true;
+                    }
                 }
             );
         } else {
@@ -259,7 +339,38 @@ export class GameScene extends Phaser.Scene {
             this.weather = new WeatherSystem(this);
         }
 
+        // Station events system
+        this.stationEvents = new StationEventManager(this, this.train, {
+            onBuffApplied: (buff) => this.onStationBuffApplied(buff)
+        });
+
+        // Ghost replay system (v1.6.1)
+        if (SETTINGS.ghostReplay) {
+            // Initialize ghost recorder for current run
+            const seed = this.seedManager ? this.seedManager.getSeed() : 'RANDOM';
+            this.ghostRecorder = new GhostRecorder(seed, SETTINGS.difficulty);
+            this.ghostStartTime = Date.now();
+
+            // Load and display previous best ghost (if exists)
+            const ghostData = GhostStorage.load();
+            if (ghostData) {
+                this.ghostRenderer = new GhostRenderer(this, ghostData);
+                this.ghostRenderer.start(this.ghostStartTime);
+            } else {
+                this.ghostRenderer = null;
+            }
+        } else {
+            this.ghostRecorder = null;
+            this.ghostRenderer = null;
+            this.ghostStartTime = 0;
+        }
+
         this.lastGridSetting = SETTINGS.showGrid;
+
+        // v1.6.2 Apply challenge mode modifiers
+        if (this.challengeMode) {
+            this.challengeMode.applyModifiers(this);
+        }
 
         this.createInitialCar();
         this.setupCamera();
@@ -317,6 +428,13 @@ export class GameScene extends Phaser.Scene {
         }
         if (this.weather) {
             this.weather.destroy();
+        }
+        if (this.stationEvents) {
+            this.stationEvents.destroy();
+        }
+        // v1.6.1 Ghost system cleanup
+        if (this.ghostRenderer) {
+            this.ghostRenderer.destroy();
         }
     }
 
@@ -379,6 +497,34 @@ export class GameScene extends Phaser.Scene {
         }
         if (this.weather) {
             this.weather.update(deltaSeconds, this.cameras.main);
+        }
+        if (this.stationEvents) {
+            this.stationEvents.update(deltaSeconds);
+        }
+        // v1.6.1 Ghost system update
+        if (this.ghostRecorder) {
+            const currentTime = Date.now();
+            const waveStatus = this.spawner.getWaveStatus();
+            this.ghostRecorder.record(
+                currentTime,
+                this.train.engine.x,
+                this.train.engine.y,
+                waveStatus.number
+            );
+        }
+        if (this.ghostRenderer) {
+            const currentTime = Date.now();
+            const waveStatus = this.spawner.getWaveStatus();
+            const comparison = this.ghostRenderer.update(currentTime, waveStatus.number);
+            // Show milestone comparison if we hit one
+            if (comparison && !this.lastMilestoneWave) {
+                createMilestoneComparisonText(this, comparison.delta);
+                this.lastMilestoneWave = comparison.wave;
+            }
+            // Reset milestone tracker on wave change
+            if (this.lastMilestoneWave && this.lastMilestoneWave !== waveStatus.number) {
+                this.lastMilestoneWave = null;
+            }
         }
         if (this.screenEffects) {
             const hpPercent = this.train.engine.hp / this.train.engine.maxHp;
@@ -557,6 +703,16 @@ export class GameScene extends Phaser.Scene {
         if (this.combo) {
             this.combo.onKill();
         }
+    }
+
+    onStationBuffApplied(buff) {
+        // Buff applied notification - HUD will display this
+        if (this.hud && typeof this.hud.showStationBuff === 'function') {
+            this.hud.showStationBuff(buff);
+        }
+
+        // Visual feedback: screen flash
+        this.applyScreenShake(100, CAMERA.shakeLight);
     }
 
     showComboMilestone(label) {
@@ -823,14 +979,43 @@ export class GameScene extends Phaser.Scene {
         const safeBonus = bonuses || {};
         const toMultiplier = (value) => 1 + Math.max(0, value || 0) / 100;
 
+        // Get prestige bonuses and combine with achievement bonuses
+        const prestigeBonuses = getPrestigeBonuses();
+
+        // Prestige bonuses are already multipliers, achievements are percentages
+        // Apply average of engine and car HP bonuses for overall HP multiplier
+        const avgHpMultiplier = (prestigeBonuses.engineHpMultiplier + prestigeBonuses.carHpMultiplier) / 2;
+
         return {
-            damage: toMultiplier(safeBonus.damage_bonus),
-            fireRate: toMultiplier(safeBonus.fire_rate_bonus),
+            damage: toMultiplier(safeBonus.damage_bonus) * prestigeBonuses.damageMultiplier,
+            fireRate: toMultiplier(safeBonus.fire_rate_bonus) * prestigeBonuses.fireRateMultiplier,
             range: toMultiplier(safeBonus.range_bonus),
             speed: toMultiplier(safeBonus.speed_bonus),
-            hp: toMultiplier(safeBonus.hp_bonus),
+            hp: toMultiplier(safeBonus.hp_bonus) * avgHpMultiplier,
             charge: toMultiplier(safeBonus.charge_bonus)
         };
+    }
+
+    /**
+     * Apply prestige starting cars bonus.
+     * Adds random colored cars to the train at game start based on prestige upgrades.
+     */
+    applyPrestigeStartingCars() {
+        const prestigeBonuses = getPrestigeBonuses();
+        const startingCars = prestigeBonuses.startingCars || 0;
+
+        if (startingCars <= 0) {
+            return;
+        }
+
+        // Add random cars from the pool
+        const colorPool = ['red', 'blue', 'yellow'];  // Match PRESTIGE.startingCarColors
+        for (let i = 0; i < startingCars; i++) {
+            const randomColor = this.rng.choice(colorPool);
+            this.train.addCar(randomColor, 1);
+        }
+
+        console.log(`[GameScene] Applied ${startingCars} prestige starting car(s)`);
     }
 
     endRun(result) {
@@ -854,8 +1039,23 @@ export class GameScene extends Phaser.Scene {
             highestTier: this.train.stats.highestTier,
             finalCarCount: this.train.getWeaponCars().length,
             highestCombo: this.combo ? this.combo.getHighestCombo() : 0, // v1.5.0
-            difficulty: SETTINGS.difficulty // v1.5.0
+            difficulty: SETTINGS.difficulty, // v1.5.0
+            endlessMode: this.endlessMode ? this.endlessMode.isEnabled() : SETTINGS.endlessMode,
+            devConsoleUsed: this.devConsoleUsed,
+            challengeMode: this.challengeMode ? this.challengeMode.id : null // v1.6.2 Challenge mode tracking
         };
+
+        // v1.6.1 Save ghost if this is a new best run
+        if (this.ghostRecorder && SETTINGS.ghostReplay) {
+            const ghostData = this.ghostRecorder.finalize(
+                waveStatus.number,
+                this.runTimeSeconds
+            );
+            const saved = GhostStorage.save(ghostData);
+            if (saved) {
+                console.log(`[Ghost] New best run saved: Wave ${waveStatus.number}`);
+            }
+        }
 
         this.scene.start('EndScene', { result, stats });
     }
