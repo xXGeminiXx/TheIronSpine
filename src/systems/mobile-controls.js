@@ -96,13 +96,13 @@ export class MobileControls {
 
     positionButtons() {
         const { width, height } = this.scene.scale;
-        // Account for notches/safe areas - large left padding needed
-        const safeAreaLeft = 60;
+        // Safe-area padding is handled by the container; keep a small edge buffer.
+        const edgeBuffer = 16;
         const buttonDiameter = BUTTON_RADIUS * 2;
         const spacing = buttonDiameter + BUTTON_PADDING;
         const totalWidth = buttonDiameter * this.buttons.length
             + BUTTON_PADDING * Math.max(0, this.buttons.length - 1);
-        const usableWidth = Math.max(1, width - safeAreaLeft - BUTTON_PADDING * 2);
+        const usableWidth = Math.max(1, width - edgeBuffer - BUTTON_PADDING * 2);
         const layoutScale = totalWidth > usableWidth
             ? usableWidth / totalWidth
             : 1;
@@ -110,8 +110,8 @@ export class MobileControls {
         const finalScale = layoutScale * this.uiScale;
         this.container.setScale(finalScale);
 
-        const startX = (BUTTON_RADIUS + BUTTON_PADDING + safeAreaLeft) / finalScale;
-        const startY = (height - BUTTON_RADIUS - BUTTON_PADDING - 20) / finalScale;
+        const startX = (BUTTON_RADIUS + BUTTON_PADDING + edgeBuffer) / finalScale;
+        const startY = (height - BUTTON_RADIUS - BUTTON_PADDING - edgeBuffer) / finalScale;
 
         this.buttons.forEach((entry, index) => {
             entry.button.setPosition(startX + index * spacing, startY);

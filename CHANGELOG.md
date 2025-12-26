@@ -41,6 +41,125 @@ When updating this game, follow these conventions:
 
 ---
 
+## [1.5.2] - 2025-12-26 (Balance + Infinite Scaling)
+
+### Added
+- Balance audit tool (`src/core/balance-audit.js`) with console tables for classic/endless curves and TTK estimates.
+- Dev console shortcut: **B** runs the balance audit and prints results to console.
+- BigInt-aware stats persistence (JSON uses `n` suffix for huge counters).
+
+### Changed
+- Endless scaling curve retuned to log-sqrt growth (smoother early, safer late).
+- Endless milestones extended through 100,000 waves.
+- Mobile safe-area handling moved to the game container; HUD and mobile buttons use tighter edge buffers.
+- Pause button now repositions on resize/orientation changes.
+
+### Fixed
+- BigInt formatting edge cases (negative values, zero-decimal suffixes).
+- Enemy scaling guards now clamp non-finite multipliers in combat spawn.
+
+### Files Added
+- `src/core/balance-audit.js`
+
+### Files Modified
+- `src/config.js` (v1.5.2 version bump, endless scaling + milestones)
+- `src/core/verylargenumbers.js` (BigInt formatting + safe coercion)
+- `src/systems/combat.js` (safe scaling guards for huge numbers)
+- `src/systems/stats-tracker.js` (BigInt persistence + safe comparisons)
+- `src/systems/achievements.js` (BigInt-safe thresholds/progress)
+- `src/systems/dev-console.js` (balance audit shortcut)
+- `src/scenes/game-scene.js` (DEV_ASSERTIONS audit hook)
+- `src/systems/mobile-controls.js` (mobile edge buffer update)
+- `src/systems/hud.js` (HUD edge buffer update)
+- `src/systems/pause-overlay.js` (resize-aware pause button)
+- `index.html` (safe-area CSS variables + padding)
+
+---
+
+## [1.5.1] - 2025-12-25 (Polish & Juice Update)
+
+### Major Features
+
+#### Cinematic Boss Arrival
+- **Searchlight Sweep**: 3 rotating searchlight beams scan the screen
+- **Scan Line Build-up**: 20 horizontal lines expand to form boss silhouette
+- **Dramatic Materialization**: Boss fades in from darkness over 1.6 second sequence
+- **Screen Desaturation**: Background desaturates during boss entrance
+- Location: `src/systems/boss-gen.js`
+
+#### Boss Phase Transitions
+- **HP-Based Phases**: 4 distinct phases at 75%, 50%, 25% HP thresholds
+- **Phase 2 (75% HP)**: Boss spins, sheds armor plates, screen shake
+- **Phase 3 (50% HP)**: Invulnerability, glowing charge-up, +30% speed
+- **Phase 4 (25% HP)**: Desperate mode, red flash, +50% speed, reset cooldowns
+- **Transition Lockout**: Prevents damage spam during dramatic moments
+- Location: `src/systems/boss-gen.js`
+
+#### Damage Numbers System
+- **Contextual Styling**: Visual feedback based on damage type
+  - Normal: White, 16px
+  - Critical: Yellow, 24px, bold
+  - Slow Applied: Blue with ❄ snowflake prefix
+  - Armor Pierced: Orange with "PIERCED" suffix
+  - Overkill: Red with animated strikethrough
+  - DoT Ticks: Small, faded gray
+- **Performance Pool**: Max 50 active numbers with automatic cleanup
+- **Rise Animation**: Float upward 40 units over 800ms with fade
+- Location: `src/systems/damage-numbers.js`
+
+#### Particle Debris System
+- **Metal Shards**: 8 colored + 5 gray particles on enemy destruction
+- **Impact Debris**: Scaled particle count based on damage dealt
+- **Critical Burst**: 12 particles + expanding ring wave for crits
+- **Armor Plates**: 6 animated plates fall off during boss phase transitions
+- **Contextual Effects**: Different visuals for different hit types
+- Location: `src/systems/vfx.js`
+
+#### Pickup Magnetism
+- **Slow Range**: 80 units, pull strength 40
+- **Fast Range**: 40 units, pull strength 120
+- **Boost Integration**: 2x range when boosting (160/80 units)
+- **Velocity-Based Pull**: Smooth acceleration toward engine
+- **Skill Reward**: Strategic boost usage extends collection range
+- Location: `src/core/pickups.js`
+
+### Visual & Polish
+
+#### Enhanced VFX
+- `spawnMetalShards()` - Enemy destruction debris
+- `spawnImpactDebris()` - Hit feedback particles
+- `spawnCriticalBurst()` - Enhanced critical hit effects with ring wave
+- `spawnArmorPlates()` - Boss phase change visual spectacle
+
+#### Combat Feedback
+- Damage numbers appear on all projectile hits
+- Damage numbers show on splash damage
+- Metal shards spawn when enemies are destroyed
+- Critical hits trigger larger particle bursts
+- Boss invulnerability during phase transitions
+
+### Bug Fixes
+- Fixed boss telegraph effect (Graphics API compatibility)
+  - Changed from `setStrokeStyle()` to container alpha pulsing
+  - Boss telegraphs now pulse correctly before attacks
+
+### Technical Improvements
+- DamageNumberSystem class with pooling for performance
+- Phase transition state machine for bosses
+- Boss scene reference for cinematic effects
+- Invulnerability flag prevents damage during transitions
+
+### Files Changed
+- `src/systems/boss-gen.js` - Cinematic arrival, phase transitions
+- `src/systems/damage-numbers.js` - NEW - Floating damage numbers
+- `src/systems/vfx.js` - Added debris particle methods
+- `src/systems/combat.js` - Integrated damage numbers, debris, invulnerability
+- `src/core/pickups.js` - Magnetism with boost integration
+- `src/systems/spawner.js` - Cinematic boss arrival integration
+- `ideas.md` - Marked 5 features as [DONE]
+
+---
+
 ## [1.5.0] - 2025-12-25 (Late Night Expansion)
 
 ### Major Features

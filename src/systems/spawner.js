@@ -1,6 +1,6 @@
 import { COLOR_KEYS, PROC_BOSS, SPAWN, WAVES } from '../config.js';
 import { pickRandom, randomBetween, randomInt, normalizeVector } from '../core/math.js';
-import { generateBoss, spawnBoss, updateBoss } from './boss-gen.js';
+import { generateBoss, spawnBoss, updateBoss, cinematicBossArrival } from './boss-gen.js';
 import { getDifficultyModifiers } from '../core/difficulty.js';
 
 /**
@@ -397,21 +397,24 @@ export class Spawner {
                 PROC_BOSS.maxDifficulty
             );
             const bossConfig = generateBoss(difficulty);
-            const boss = spawnBoss(this.scene, bossConfig, spawnPoint);
 
-            // Register as special enemy with combat system
-            this.combatSystem.enemies.push({
-                ...boss,
-                type: 'boss',
-                isProcedural: true,
-                baseColor: boss.config.coreColor,
-                trim: boss.config.trimColor
-            });
-
-            // Show boss intro if screen effects available
+            // v1.5.1 Cinematic boss arrival sequence
             if (this.scene.screenEffects) {
-                this.scene.screenEffects.desaturate(1000, 0.6);
+                this.scene.screenEffects.desaturate(1600, 0.6);
             }
+
+            cinematicBossArrival(this.scene, bossConfig, spawnPoint, () => {
+                const boss = spawnBoss(this.scene, bossConfig, spawnPoint);
+
+                // Register as special enemy with combat system
+                this.combatSystem.enemies.push({
+                    ...boss,
+                    type: 'boss',
+                    isProcedural: true,
+                    baseColor: boss.config.coreColor,
+                    trim: boss.config.trimColor
+                });
+            });
         } else {
             // Standard static enemy
             this.combatSystem.spawnEnemy(type, spawnPoint, scale);

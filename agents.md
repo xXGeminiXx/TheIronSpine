@@ -77,7 +77,7 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 
 ## Current State (Update As Progress Happens)
 
-### Phase: Production (v1.5.0 - Live on GitHub Pages)
+### Phase: Production (v1.5.2 - Live on GitHub Pages)
 
 **Completed:**
 - Engine silhouette finalized (cartoon locomotive)
@@ -109,6 +109,11 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 - **Difficulty system** (v1.5.0) - Easy/Normal/Hard with full modifiers
 - **Enemy teleport** (v1.5.0) - Prevents off-screen wandering
 - **Scrollbar module** (v1.5.0) - Reusable UI component
+- **Balance audit tool** (v1.5.2) - Console table for scaling/TTK sanity checks
+- **BigInt stats persistence** (v1.5.2) - Safe counters beyond Number.MAX_SAFE_INTEGER
+- **Endless scaling retune** (v1.5.2) - Log-sqrt curve for smoother infinite mode
+- **Mobile safe-area padding** (v1.5.2) - Container-level safe area handling
+- **Resize-aware pause button** (v1.5.2) - Repositions on orientation changes
 
 **New Art Systems (v1.3):**
 - `src/art/world-gen.js` - Parallax background with mountain terrain, debris, wrecks, signs

@@ -144,6 +144,9 @@ export function formatNumber(value, decimals = 2) {
     // Parse string numbers
     if (typeof value === 'string') {
         const trimmed = value.trim();
+        if (/^-?\d+n$/.test(trimmed)) {
+            return formatBigInt(BigInt(trimmed.slice(0, -1)), decimals);
+        }
         if (isLargeIntegerString(trimmed)) {
             return formatBigInt(BigInt(trimmed), decimals);
         }
@@ -663,13 +666,12 @@ export function createAnimatedNumber(initialValue = 0, options = {}) {
  * @param {number} wave - Current wave number
  * @returns {number} Scaled HP value
  */
-export function endlessEnemyHp(baseHp, wave) {
-    // Polynomial scaling with diminishing returns
-    // Wave 20: ~2x base
-    // Wave 100: ~10x base
-    // Wave 500: ~50x base
-    // Wave 1000: ~100x base
-    const scaleFactor = 1 + Math.pow(wave / 10, 1.5) * 0.1;
+export function endlessEnemyHp(baseHp, wave, rate = 0.15) {
+    // Log-sqrt scaling with diminishing returns
+    // Wave 100: ~4x base (default rate)
+    // Wave 1000: ~15x base
+    const waveValue = Math.max(1, toNumberSafe(wave, 1));
+    const scaleFactor = 1 + rate * Math.log10(waveValue + 9) * Math.sqrt(waveValue);
     return Math.floor(baseHp * scaleFactor);
 }
 
@@ -680,9 +682,10 @@ export function endlessEnemyHp(baseHp, wave) {
  * @param {number} wave - Current wave
  * @returns {number} Scaled damage
  */
-export function endlessEnemyDamage(baseDamage, wave) {
+export function endlessEnemyDamage(baseDamage, wave, rate = 0.08) {
     // Gentler scaling than HP to keep player viable
-    const scaleFactor = 1 + Math.log10(Math.max(1, wave)) * 0.5;
+    const waveValue = Math.max(1, toNumberSafe(wave, 1));
+    const scaleFactor = 1 + rate * Math.log10(waveValue + 9) * Math.sqrt(waveValue);
     return Math.floor(baseDamage * scaleFactor);
 }
 
@@ -707,7 +710,8 @@ export function endlessScoreMultiplier(wave) {
  */
 export function endlessEnemyCount(baseCount, wave, maxCap = 50) {
     // Logarithmic growth to prevent overwhelming the player/CPU
-    const count = baseCount + Math.floor(Math.log2(wave + 1) * 3);
+    const waveValue = Math.max(1, toNumberSafe(wave, 1));
+    const count = baseCount + Math.floor(Math.log2(waveValue + 1) * 3);
     return Math.min(count, maxCap);
 }
 
@@ -721,6 +725,7 @@ export function endlessEnemyCount(baseCount, wave, maxCap = 50) {
 //   formatFull(value)              - Full precision for stats
 //   formatTime(seconds)            - Time duration formatting
 //   formatPercent(value)           - Percentage formatting
+//   toNumberSafe(value, fallback)  - Safe numeric coercion
 //
 // Big Numbers:
 //   BigNum                         - Class for arbitrary precision math

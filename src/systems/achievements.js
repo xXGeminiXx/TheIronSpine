@@ -32,6 +32,8 @@
  *   3. Each tier has: threshold, points, reward multiplier
  */
 
+import { toNumberSafe } from '../core/verylargenumbers.js';
+
 const STORAGE_KEY = 'ironspine_achievements_v2';
 
 // ----------------------------------------------------------------------------
@@ -135,7 +137,7 @@ export const ACHIEVEMENT_REGISTRY = {
             name: 'Boss Hunter',
             description: 'Boss enemies defeated (wave 10, 20)',
             icon: 'B',
-            getValue: (run, stats) => Math.floor(stats.totalWavesCleared / 10),
+            getValue: (run, stats) => Math.floor(toNumberSafe(stats.totalWavesCleared, 0) / 10),
             tiers: [
                 { threshold: 1, points: 15 },
                 { threshold: 5, points: 30 },
@@ -149,7 +151,7 @@ export const ACHIEVEMENT_REGISTRY = {
             name: 'Champion Slayer',
             description: 'Champion enemies defeated (wave 5, 15)',
             icon: 'C',
-            getValue: (run, stats) => Math.floor(stats.totalWavesCleared / 5),
+            getValue: (run, stats) => Math.floor(toNumberSafe(stats.totalWavesCleared, 0) / 5),
             tiers: [
                 { threshold: 2, points: 10 },
                 { threshold: 10, points: 25 },
@@ -427,8 +429,10 @@ export const ACHIEVEMENT_REGISTRY = {
             description: 'Win rate percentage (min 10 runs)',
             icon: '%',
             getValue: (run, stats) => {
-                if (stats.totalRuns < 10) return 0;
-                return Math.floor((stats.totalVictories / stats.totalRuns) * 100);
+                const totalRuns = toNumberSafe(stats.totalRuns, 0);
+                const totalVictories = toNumberSafe(stats.totalVictories, 0);
+                if (totalRuns < 10) return 0;
+                return Math.floor((totalVictories / totalRuns) * 100);
             },
             tiers: [
                 { threshold: 50, points: 30 },
@@ -648,6 +652,7 @@ export class AchievementTracker {
         Object.values(ACHIEVEMENT_REGISTRY).forEach(categoryAchievements => {
             categoryAchievements.forEach(achievement => {
                 const currentValue = achievement.getValue(runData, stats);
+                const numericValue = toNumberSafe(currentValue, 0);
                 const currentTier = unlocked[achievement.id] || 0;
 
                 // Check each tier
@@ -659,12 +664,13 @@ export class AchievementTracker {
 
                     // Check if threshold is met
                     const compare = tierData.compare || '>=';
+                    const numericThreshold = toNumberSafe(tierData.threshold, 0);
                     let earned = false;
 
                     if (compare === '>=') {
-                        earned = currentValue >= tierData.threshold;
+                        earned = numericValue >= numericThreshold;
                     } else if (compare === '<=') {
-                        earned = currentValue <= tierData.threshold && currentValue > 0;
+                        earned = numericValue <= numericThreshold && numericValue > 0;
                     }
 
                     if (earned) {
@@ -721,6 +727,8 @@ export class AchievementTracker {
                 const currentTier = unlocked[achievement.id] || 0;
                 const nextTier = achievement.tiers[currentTier]; // Next to unlock
                 const currentValue = stats ? achievement.getValue({}, stats) : 0;
+                const currentValueNumber = toNumberSafe(currentValue, 0);
+                const thresholdNumber = nextTier ? toNumberSafe(nextTier.threshold, 0) : 0;
 
                 return {
                     ...achievement,
@@ -729,7 +737,7 @@ export class AchievementTracker {
                     currentValue,
                     nextThreshold: nextTier?.threshold || null,
                     progress: nextTier
-                        ? Math.min(100, Math.floor((currentValue / nextTier.threshold) * 100))
+                        ? Math.min(100, Math.floor((currentValueNumber / Math.max(1, thresholdNumber)) * 100))
                         : 100,
                     isMaxed: currentTier >= achievement.tiers.length,
                     displayDescription: achievement.hidden && currentTier === 0

@@ -254,6 +254,120 @@ export class VfxSystem {
         return Phaser.Display.Color.HexStringToColor(colorValue).color;
     }
 
+    /**
+     * v1.5.1 - Spawn metal shards when enemy is destroyed.
+     * @param {object} position - {x, y}
+     * @param {number} enemyColor - Enemy base color
+     */
+    spawnMetalShards(position, enemyColor) {
+        const color = this.resolveColor(enemyColor);
+        this.spawnBurst(position, color, {
+            count: 8,
+            speed: 100,
+            life: 0.6,
+            radius: 3,
+            alpha: 0.9,
+            spread: 1.2
+        });
+
+        // Add some gray metal pieces
+        this.spawnBurst(position, 0x888888, {
+            count: 5,
+            speed: 80,
+            life: 0.5,
+            radius: 2.5,
+            alpha: 0.8,
+            spread: 0.8
+        });
+    }
+
+    /**
+     * v1.5.1 - Spawn impact debris on hit.
+     * @param {object} position - {x, y}
+     * @param {number} damage - Damage dealt
+     */
+    spawnImpactDebris(position, damage) {
+        const count = Math.min(8, 3 + Math.floor(damage / 10));
+        this.spawnBurst(position, 0xffaa44, {
+            count,
+            speed: 60,
+            life: 0.4,
+            radius: 2,
+            alpha: 0.7,
+            spread: 0.6
+        });
+    }
+
+    /**
+     * v1.5.1 - Spawn larger burst for critical hits.
+     * @param {object} position - {x, y}
+     * @param {number} color - Projectile color
+     */
+    spawnCriticalBurst(position, color) {
+        this.spawnBurst(position, this.resolveColor(color), {
+            count: 12,
+            speed: 120,
+            life: 0.8,
+            radius: 4,
+            alpha: 1.0,
+            spread: 1.5
+        });
+
+        // Add expanding ring effect
+        const ring = this.scene.add.circle(position.x, position.y, 10);
+        ring.setDepth(VFX_RING_DEPTH);
+        ring.setStrokeStyle(3, this.resolveColor(color), 0.8);
+        ring.setFillStyle(0x000000, 0);
+
+        this.scene.tweens.add({
+            targets: ring,
+            radius: 40,
+            alpha: 0,
+            duration: 400,
+            ease: 'Cubic.easeOut',
+            onComplete: () => ring.destroy()
+        });
+    }
+
+    /**
+     * v1.5.1 - Spawn armor plates falling off boss.
+     * @param {object} position - {x, y}
+     * @param {number} bossSize - Boss radius
+     */
+    spawnArmorPlates(position, bossSize = 60) {
+        const plateCount = 6;
+        for (let i = 0; i < plateCount; i++) {
+            const angle = (i / plateCount) * Math.PI * 2;
+            const distance = bossSize * 0.8;
+            const plateX = position.x + Math.cos(angle) * distance;
+            const plateY = position.y + Math.sin(angle) * distance;
+
+            // Create rectangular armor plate
+            const plate = this.scene.add.rectangle(
+                plateX,
+                plateY,
+                12,
+                18,
+                0x888888,
+                0.9
+            );
+            plate.setDepth(VFX_DEPTH);
+            plate.setRotation(angle + Math.PI / 2);
+
+            // Animate plate falling
+            this.scene.tweens.add({
+                targets: plate,
+                x: plateX + Math.cos(angle) * 30,
+                y: plateY + Math.sin(angle) * 30 + 40, // Gravity
+                rotation: angle + Math.PI / 2 + Math.random() * Math.PI * 2,
+                alpha: 0,
+                duration: 800,
+                ease: 'Cubic.easeOut',
+                onComplete: () => plate.destroy()
+            });
+        }
+    }
+
     destroy() {
         this.particles.forEach((particle) => particle.sprite.destroy());
         this.particles.length = 0;

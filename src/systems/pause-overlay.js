@@ -384,12 +384,13 @@ export class PauseOverlay {
             return;
         }
 
-        const { width } = this.scene.scale;
         const buttonSize = 40;
         const padding = 16;
+        this.pauseButtonSize = buttonSize;
+        this.pauseButtonPadding = padding;
 
         // Create pause button (two vertical bars = pause symbol)
-        this.pauseButton = this.scene.add.container(width - buttonSize - padding, padding);
+        this.pauseButton = this.scene.add.container(0, 0);
         this.pauseButton.setDepth(100);
         this.pauseButton.setScrollFactor(0);
 
@@ -405,6 +406,20 @@ export class PauseOverlay {
         // Make interactive
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => this.toggle());
+
+        this.positionPauseButton();
+        this.pauseResizeHandler = () => this.positionPauseButton();
+        this.scene.scale.on('resize', this.pauseResizeHandler);
+    }
+
+    positionPauseButton() {
+        if (!this.pauseButton) {
+            return;
+        }
+        const { width } = this.scene.scale;
+        const buttonSize = this.pauseButtonSize || 40;
+        const padding = this.pauseButtonPadding || 16;
+        this.pauseButton.setPosition(width - buttonSize - padding, padding);
     }
 
     /**
@@ -417,6 +432,11 @@ export class PauseOverlay {
 
         if (this.pauseButton) {
             this.pauseButton.destroy();
+        }
+
+        if (this.pauseResizeHandler) {
+            this.scene.scale.off('resize', this.pauseResizeHandler);
+            this.pauseResizeHandler = null;
         }
 
         // Remove window event listener

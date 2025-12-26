@@ -37,12 +37,8 @@
 
 import {
     formatNumber,
-    formatCompact,
-    endlessEnemyHp,
-    endlessEnemyDamage,
-    endlessEnemyCount,
     endlessScoreMultiplier,
-    scaleForWave,
+    safeAdd,
     softCap
 } from '../core/verylargenumbers.js';
 
@@ -327,7 +323,7 @@ export class EndlessMode {
      */
     completeWave(wave, score = 0) {
         this.currentWave = wave + 1;
-        this.totalScore += score;
+        this.totalScore = safeAdd(this.totalScore, score);
 
         // Check for new record
         if (wave > this.highestWave) {

@@ -9,22 +9,23 @@
  *
  * DATA STRUCTURE:
  *   {
- *     totalRuns: number,
- *     totalVictories: number,
- *     totalDefeats: number,
+ *     totalRuns: number | BigInt,
+ *     totalVictories: number | BigInt,
+ *     totalDefeats: number | BigInt,
  *     totalPlayTimeSeconds: number,
- *     totalEnemiesDestroyed: number,
- *     totalCarsCollected: number,
- *     totalMerges: number,
+ *     totalEnemiesDestroyed: number | BigInt,
+ *     totalCarsCollected: number | BigInt,
+ *     totalMerges: number | BigInt,
  *     personalBests: {
  *       fastestVictory: number (seconds),
- *       highestWave: number,
+ *       highestWave: number | BigInt,
  *       highestTier: number,
- *       mostKills: number,
+ *       mostKills: number | BigInt,
  *       longestRun: number (seconds),
- *       mostCarsCollected: number,
- *       mostMerges: number
+ *       mostCarsCollected: number | BigInt,
+ *       mostMerges: number | BigInt
  *     },
+ *     // Note: BigInt values are serialized with an "n" suffix in JSON.
  *     recentRuns: [ ...last 10 runs ],
  *     firstPlayDate: ISO string,
  *     lastPlayDate: ISO string
@@ -59,6 +60,8 @@
  *   All data is stored locally in the browser. Nothing is sent to any server.
  *   Players can clear their stats by clearing localStorage or calling reset().
  */
+
+import { toNumberSafe } from '../core/verylargenumbers.js';
 
 const STORAGE_KEY = 'ironspine_stats';
 const MAX_RECENT_RUNS = 10;
@@ -125,7 +128,7 @@ export class StatsTracker {
                 return this._deepCopy(DEFAULT_STATS);
             }
 
-            const parsed = JSON.parse(stored);
+            const parsed = JSON.parse(stored, this._bigIntReviver);
 
             // Merge with defaults to handle missing fields from older versions
             return this._mergeWithDefaults(parsed);
@@ -160,27 +163,30 @@ export class StatsTracker {
         stats.lastPlayDate = now;
 
         // Increment totals
-        stats.totalRuns++;
+        stats.totalRuns = this._addCount(stats.totalRuns, 1);
         stats.totalPlayTimeSeconds += runData.timeSurvived || 0;
-        stats.totalEnemiesDestroyed += runData.enemiesDestroyed || 0;
-        stats.totalPulseHits += runData.pulseHits || 0;
-        stats.totalCarsCollected += runData.carsCollected || 0;
-        stats.totalCarsLost += runData.carsLost || 0;
-        stats.totalMerges += runData.mergesCompleted || 0;
-        stats.totalWavesCleared += runData.wavesCleared || 0;
+        stats.totalEnemiesDestroyed = this._addCount(stats.totalEnemiesDestroyed, runData.enemiesDestroyed || 0);
+        stats.totalPulseHits = this._addCount(stats.totalPulseHits, runData.pulseHits || 0);
+        stats.totalCarsCollected = this._addCount(stats.totalCarsCollected, runData.carsCollected || 0);
+        stats.totalCarsLost = this._addCount(stats.totalCarsLost, runData.carsLost || 0);
+        stats.totalMerges = this._addCount(stats.totalMerges, runData.mergesCompleted || 0);
+        stats.totalWavesCleared = this._addCount(stats.totalWavesCleared, runData.wavesCleared || 0);
 
         // Track victories/defeats
         const isVictory = runData.result === 'victory';
         if (isVictory) {
-            stats.totalVictories++;
-            stats.personalBests.currentWinStreak++;
+            stats.totalVictories = this._addCount(stats.totalVictories, 1);
+            stats.personalBests.currentWinStreak = this._addCount(
+                stats.personalBests.currentWinStreak,
+                1
+            );
 
             // Check for longest win streak
-            if (stats.personalBests.currentWinStreak > stats.personalBests.longestWinStreak) {
+            if (this._greaterThan(stats.personalBests.currentWinStreak, stats.personalBests.longestWinStreak)) {
                 stats.personalBests.longestWinStreak = stats.personalBests.currentWinStreak;
             }
         } else {
-            stats.totalDefeats++;
+            stats.totalDefeats = this._addCount(stats.totalDefeats, 1);
             stats.personalBests.currentWinStreak = 0;
         }
 
@@ -197,7 +203,7 @@ export class StatsTracker {
         }
 
         // Highest wave
-        if (runData.wavesCleared > stats.personalBests.highestWave) {
+        if (this._greaterThan(runData.wavesCleared, stats.personalBests.highestWave)) {
             stats.personalBests.highestWave = runData.wavesCleared;
             newBests.push('highestWave');
         }
@@ -209,7 +215,7 @@ export class StatsTracker {
         }
 
         // Most kills in a run
-        if (runData.enemiesDestroyed > stats.personalBests.mostKillsInRun) {
+        if (this._greaterThan(runData.enemiesDestroyed, stats.personalBests.mostKillsInRun)) {
             stats.personalBests.mostKillsInRun = runData.enemiesDestroyed;
             newBests.push('mostKillsInRun');
         }
@@ -221,13 +227,13 @@ export class StatsTracker {
         }
 
         // Most cars collected
-        if (runData.carsCollected > stats.personalBests.mostCarsCollected) {
+        if (this._greaterThan(runData.carsCollected, stats.personalBests.mostCarsCollected)) {
             stats.personalBests.mostCarsCollected = runData.carsCollected;
             newBests.push('mostCarsCollected');
         }
 
         // Most merges
-        if (runData.mergesCompleted > stats.personalBests.mostMergesInRun) {
+        if (this._greaterThan(runData.mergesCompleted, stats.personalBests.mostMergesInRun)) {
             stats.personalBests.mostMergesInRun = runData.mergesCompleted;
             newBests.push('mostMergesInRun');
         }
@@ -268,11 +274,13 @@ export class StatsTracker {
      */
     static getSummary() {
         const stats = this.getStats();
+        const totalRunsNumber = toNumberSafe(stats.totalRuns, 0);
+        const totalVictoriesNumber = toNumberSafe(stats.totalVictories, 0);
 
         return {
             totalRuns: stats.totalRuns,
-            winRate: stats.totalRuns > 0
-                ? Math.round((stats.totalVictories / stats.totalRuns) * 100)
+            winRate: totalRunsNumber > 0
+                ? Math.round((totalVictoriesNumber / totalRunsNumber) * 100)
                 : 0,
             totalPlayTime: this._formatDuration(stats.totalPlayTimeSeconds),
             totalKills: stats.totalEnemiesDestroyed,
@@ -305,7 +313,7 @@ export class StatsTracker {
      * @returns {string} JSON string of current stats
      */
     static export() {
-        return JSON.stringify(this.getStats(), null, 2);
+        return JSON.stringify(this.getStats(), this._bigIntReplacer, 2);
     }
 
     /**
@@ -317,10 +325,10 @@ export class StatsTracker {
      */
     static import(jsonString) {
         try {
-            const imported = JSON.parse(jsonString);
+            const imported = JSON.parse(jsonString, this._bigIntReviver);
 
             // Basic validation - ensure required fields exist
-            if (typeof imported.totalRuns !== 'number') {
+            if (typeof imported.totalRuns !== 'number' && typeof imported.totalRuns !== 'bigint') {
                 throw new Error('Invalid stats format');
             }
 
@@ -340,14 +348,14 @@ export class StatsTracker {
 
     static _saveStats(stats) {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stats, this._bigIntReplacer));
         } catch (error) {
             console.warn('[StatsTracker] Failed to save stats:', error);
         }
     }
 
     static _deepCopy(obj) {
-        return JSON.parse(JSON.stringify(obj));
+        return JSON.parse(JSON.stringify(obj, this._bigIntReplacer), this._bigIntReviver);
     }
 
     static _mergeWithDefaults(stored) {
@@ -368,6 +376,60 @@ export class StatsTracker {
         });
 
         return result;
+    }
+
+    static _bigIntReplacer(key, value) {
+        if (typeof value === 'bigint') {
+            return `${value.toString()}n`;
+        }
+        return value;
+    }
+
+    static _bigIntReviver(key, value) {
+        if (typeof value === 'string' && /^-?\d+n$/.test(value)) {
+            return BigInt(value.slice(0, -1));
+        }
+        return value;
+    }
+
+    static _isBigInt(value) {
+        return typeof value === 'bigint';
+    }
+
+    static _toBigInt(value) {
+        if (typeof value === 'bigint') {
+            return value;
+        }
+        if (typeof value === 'number') {
+            if (!Number.isFinite(value)) {
+                return 0n;
+            }
+            return BigInt(Math.floor(value));
+        }
+        if (typeof value === 'string' && /^-?\d+$/.test(value)) {
+            return BigInt(value);
+        }
+        return 0n;
+    }
+
+    static _addCount(current, delta) {
+        const deltaValue = Number.isFinite(delta) ? delta : 0;
+        if (this._isBigInt(current)) {
+            return current + BigInt(Math.floor(deltaValue));
+        }
+
+        const next = (current || 0) + deltaValue;
+        if (next > Number.MAX_SAFE_INTEGER) {
+            return this._toBigInt(current || 0) + BigInt(Math.floor(deltaValue));
+        }
+        return next;
+    }
+
+    static _greaterThan(a, b) {
+        if (this._isBigInt(a) || this._isBigInt(b)) {
+            return this._toBigInt(a) > this._toBigInt(b);
+        }
+        return (a || 0) > (b || 0);
     }
 
     static _formatDuration(seconds) {

@@ -19,7 +19,7 @@
 
 import { PALETTE, UI, RENDER, BUILD } from '../config.js';
 import { SETTINGS } from '../core/settings.js';
-import { formatNumber } from '../core/verylargenumbers.js';
+import { formatNumber, toNumberSafe } from '../core/verylargenumbers.js';
 import { getStatsSummary } from '../systems/stats-tracker.js';
 import { getAchievementSummary } from '../systems/achievements.js';
 
@@ -191,9 +191,10 @@ export class MenuScene extends Phaser.Scene {
     createStatsSummary(width, height) {
         // Get stats from tracker (returns defaults if no data)
         const stats = getStatsSummary();
+        const totalRuns = toNumberSafe(stats.totalRuns, 0);
 
         // Only show if player has at least one run
-        if (stats.totalRuns === 0) {
+        if (totalRuns === 0) {
             return;
         }
 
@@ -204,7 +205,7 @@ export class MenuScene extends Phaser.Scene {
         ];
 
         // Add streak if relevant
-        if (stats.currentStreak > 0) {
+        if (toNumberSafe(stats.currentStreak, 0) > 0) {
             statsLines.push(`Streak: ${formatNumber(stats.currentStreak, 0)}`);
         }
 

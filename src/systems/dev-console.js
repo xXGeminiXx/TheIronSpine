@@ -1,6 +1,7 @@
 import { COLORS, PALETTE, TRAIN, UI, RENDER } from '../config.js';
 import { pickRandom } from '../core/math.js';
 import { SETTINGS, toggleSetting } from '../core/settings.js';
+import { runBalanceAudit } from '../core/balance-audit.js';
 
 const CONSOLE_DEPTH = 220;
 
@@ -133,6 +134,7 @@ export class DevConsole {
             `L: Log events [${SETTINGS.logEvents ? 'ON' : 'OFF'}]`,
             `G: Grid [${SETTINGS.showGrid ? 'ON' : 'OFF'}]`,
             `S: Screen shake [${SETTINGS.screenShake ? 'ON' : 'OFF'}]`,
+            'B: Balance audit (console)',
             'N: Force next wave',
             'W: Win run'
         ];
@@ -211,6 +213,9 @@ export class DevConsole {
             case 'KeyS':
                 toggleSetting('screenShake');
                 this.refreshText();
+                break;
+            case 'KeyB':
+                runBalanceAudit({ difficulty: SETTINGS.difficulty });
                 break;
             case 'KeyN':
                 this.spawner.forceNextWave();

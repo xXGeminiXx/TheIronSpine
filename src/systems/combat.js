@@ -8,8 +8,10 @@ import {
     WEAPON_STATS
 } from '../config.js';
 import { angleTo, distanceSquared, normalizeVector } from '../core/math.js';
+import { safeAdd, safeMultiply } from '../core/verylargenumbers.js';
 import { updateBoss } from './boss-gen.js';
 import { spawnCritEffect } from './critical-hits.js';
+import { DamageNumberSystem } from './damage-numbers.js';
 import {
     createProjectileSprite,
     updateProjectileVisuals,
@@ -51,6 +53,8 @@ export class CombatSystem {
             enemiesDestroyed: 0,
             pulseHits: 0
         };
+        // v1.5.1 Damage numbers system
+        this.damageNumbers = new DamageNumberSystem(scene);
     }
 
     update(deltaSeconds) {
@@ -609,10 +613,15 @@ export class CombatSystem {
         }
 
         const sprite = this.createEnemySprite(type, position, base);
+        const safeScale = {
+            hp: Number.isFinite(scale.hp) ? scale.hp : 1,
+            damage: Number.isFinite(scale.damage) ? scale.damage : 1,
+            speed: Number.isFinite(scale.speed) ? scale.speed : 1
+        };
 
         nextEnemyId += 1;
         const enemyId = nextEnemyId;
-        const hp = Math.round(base.hp * scale.hp);
+        const hp = Math.max(1, Math.round(safeMultiply(base.hp, safeScale.hp)));
         const enemy = {
             id: enemyId,
             type,
@@ -621,8 +630,8 @@ export class CombatSystem {
             rotation: 0,
             hp,
             maxHp: hp,
-            speed: base.speed * scale.speed,
-            damage: Math.round(base.damage * scale.damage),
+            speed: Math.max(0, base.speed * safeScale.speed),
+            damage: Math.max(1, Math.round(safeMultiply(base.damage, safeScale.damage))),
             radius: base.radius,
             armor: base.armor,
             baseColor: base.color,
@@ -868,6 +877,11 @@ export class CombatSystem {
     }
 
     applyProjectileDamage(projectile, enemy) {
+        // v1.5.1 Check boss invulnerability (during phase transitions)
+        if (enemy.invulnerable) {
+            return; // No damage during invulnerable state
+        }
+
         const effectiveArmor = enemy.armor * (1 - projectile.armorPierce);
         let damage = Math.max(0, projectile.damage - effectiveArmor);
 
@@ -881,8 +895,34 @@ export class CombatSystem {
             damage *= projectile.critMultiplier;
         }
 
+        const previousHp = enemy.hp;
         enemy.hp = Math.max(0, enemy.hp - damage);
         this.flashEnemy(enemy);
+
+        // v1.5.1 Show damage number with context
+        if (this.damageNumbers) {
+            this.damageNumbers.show(enemy.x, enemy.y - enemy.radius, damage, {
+                isCritical: projectile.isCrit || false,
+                isSlowApplied: (projectile.slowPercent > 0),
+                isArmorPierced: (projectile.armorPierce > 0),
+                isOverkill: (damage > previousHp),
+                isDoT: false
+            });
+        }
+
+        // v1.5.1 Spawn impact debris
+        if (this.scene.vfx) {
+            if (projectile.isCrit) {
+                // Larger burst for crits
+                this.scene.vfx.spawnCriticalBurst(
+                    { x: projectile.x, y: projectile.y },
+                    projectile.color || 0xffffff
+                );
+            } else {
+                // Normal impact debris
+                this.scene.vfx.spawnImpactDebris({ x: projectile.x, y: projectile.y }, damage);
+            }
+        }
 
         // v1.4.0 Show crit effect
         if (projectile.isCrit) {
@@ -920,9 +960,22 @@ export class CombatSystem {
             const distSq = (enemy.x - x) ** 2 + (enemy.y - y) ** 2;
 
             if (distSq <= hitRadius ** 2) {
+                const previousHp = enemy.hp;
+
                 // Apply splash damage (no armor reduction for splash)
                 enemy.hp = Math.max(0, enemy.hp - damage);
                 this.flashEnemy(enemy);
+
+                // v1.5.1 Show splash damage number
+                if (this.damageNumbers) {
+                    this.damageNumbers.show(enemy.x, enemy.y - enemy.radius, damage, {
+                        isCritical: false,
+                        isSlowApplied: false,
+                        isArmorPierced: false,
+                        isOverkill: (damage > previousHp),
+                        isDoT: false
+                    });
+                }
 
                 if (enemy.hp <= 0) {
                     this.destroyEnemyAtIndex(index);
@@ -955,7 +1008,7 @@ export class CombatSystem {
             }
         }
         if (hits > 0) {
-            this.stats.pulseHits += hits;
+            this.stats.pulseHits = safeAdd(this.stats.pulseHits, hits);
         }
     }
 
@@ -1008,9 +1061,23 @@ export class CombatSystem {
 
     destroyEnemyAtIndex(index) {
         const [enemy] = this.enemies.splice(index, 1);
+
+        // v1.5.1 Spawn metal shards debris
+        if (this.scene.vfx) {
+            const enemyColor = enemy.baseColor || 0x888888;
+            this.scene.vfx.spawnMetalShards({ x: enemy.x, y: enemy.y }, enemyColor);
+        }
+
         this.cleanupEnemy(enemy);
-        enemy.sprite.destroy();
-        this.stats.enemiesDestroyed += 1;
+
+        // Destroy visual (sprite for normal enemies, container for procedural bosses)
+        if (enemy.isProcedural && enemy.container) {
+            enemy.container.destroy();
+        } else if (enemy.sprite) {
+            enemy.sprite.destroy();
+        }
+
+        this.stats.enemiesDestroyed = safeAdd(this.stats.enemiesDestroyed, 1);
 
         if (this.eventHandlers.onEnemyDestroyed) {
             this.eventHandlers.onEnemyDestroyed(enemy);

@@ -157,10 +157,17 @@ Location: `src/systems/boss-gen.js`
 
 Location: `src/systems/weather.js`
 
-### Cinematic Boss Arrival
-- Screen desaturates
-- Searchlights sweep
-- Boss silhouette forms from scan lines before filling in
+### [DONE] Cinematic Boss Arrival
+**Implementation**: Searchlights, scan lines, silhouette formation (v1.5.1)
+
+**Features**:
+- Searchlight sweep (3 rotating beams)
+- Scan line build-up (20 horizontal lines expanding)
+- Silhouette forms from darkness
+- Boss materializes after 1.6s sequence
+- Screen desaturation during arrival
+
+Location: `src/systems/boss-gen.js` cinematicBossArrival()
 
 ---
 
@@ -451,25 +458,23 @@ Queue effects, don't overlap, blend smoothly
 
 ---
 
-### Particle Debris from Hits
-**Concept**: Every hit spawns contextual debris.
+### [DONE] Particle Debris from Hits
+**Implementation**: Contextual debris particles (v1.5.1)
 
-| Hit Type | Debris |
-|----------|--------|
-| Enemy destroyed | Metal shards in enemy color |
-| Car damaged | Sparks + smoke puff |
-| Boss phase change | Armor plates fall off |
-| Critical hit | Larger burst + ring wave |
+**Features**:
+- Metal shards when enemies destroyed (8 colored + 5 gray particles)
+- Impact debris on projectile hits (scaled by damage)
+- Critical burst with expanding ring for crits (12 particles + ring)
+- Armor plates fall off bosses during phase transitions (6 rotating plates)
+- All debris uses particle pooling for performance
 
-[SCAFFOLDING]
-```
-Location: Extend src/systems/vfx.js
-Create debris particle pool (max 200)
-On hit events, spawn 3-8 particles at impact point
-Particles: rectangles with rotation, gravity, fade
-Vary size/color based on damage and target type
-Recycle particles after 1-2s lifespan
-```
+**Methods**:
+- spawnMetalShards() - Enemy destruction debris
+- spawnImpactDebris() - Hit feedback particles
+- spawnCriticalBurst() - Enhanced critical hit effects
+- spawnArmorPlates() - Boss phase change visuals
+
+Location: `src/systems/vfx.js`
 
 **Why it works**: Readable feedback, visceral impact, cheap to render.
 
@@ -566,70 +571,75 @@ Enemy scale: baseScale * (1 - distance * 0.0001)
 
 ---
 
-### Damage Numbers with Context
-**Concept**: Floating numbers show damage, but also damage type.
+### [DONE] Damage Numbers with Context
+**Implementation**: Floating damage numbers with visual styles (v1.5.1)
 
-**Styles**:
-- Critical: Large, bold, yellow
-- Slow effect applied: Blue tint, snowflake icon
-- Armor pierced: Orange, "PIERCED" suffix
-- Overkill damage: Red, strike-through
-- Status tick: Small, faded, dots for DoT
+**Features**:
+- Normal damage: White, 16px
+- Critical hits: Yellow, 24px, bold
+- Slow applied: Blue with ❄ snowflake prefix
+- Armor pierced: Orange with "PIERCED" suffix, 18px
+- Overkill: Red with animated strikethrough, 20px
+- DoT ticks: Small, faded gray, 12px
+- Text pool (max 50) for performance
+- Rise and fade animation (40 units up, 800ms)
 
-[SCAFFOLDING]
-```
-Location: New src/systems/damage-numbers.js
-Create text pool (max 50 active)
-On damage event, spawn text at enemy position
-Tween upward + fade over 0.8s
-Color and style based on damage type
-Use bitmap font for performance (or regular text)
-```
+**Integration**:
+- Shows on all projectile hits
+- Shows on splash damage
+- Context-aware styling based on damage type
+
+Location: `src/systems/damage-numbers.js`, integrated in `src/systems/combat.js`
 
 **Why it works**: Clarity, feedback, teaches mechanics visually.
 
 ---
 
-### Boss Phase Transition Spectacles
-**Concept**: Each boss phase change has a unique cinematic moment.
+### [DONE] Boss Phase Transition Spectacles
+**Implementation**: HP-based phase transitions with unique effects (v1.5.1)
 
-**Transitions**:
-- Phase 2 (75% HP): Boss spins, sheds armor plates, screen shake
-- Phase 3 (50% HP): Brief invulnerability, glowing charge-up, weapon swap
-- Phase 4 (25% HP): Desperate mode, erratic movement, faster attacks
-- Death: Explosion sequence, parts fly off, screen flash
+**Features**:
+- Phase tracking with 4 HP thresholds (100-75%, 75-50%, 50-25%, 25-0%)
+- Transition lockout prevents damage spam
 
-[SCAFFOLDING]
-```
-Location: src/systems/combat.js - boss update logic
-Detect HP thresholds crossing
-Trigger transition: invulnerable flag + animation timer
-During transition: dramatic visuals, audio stinger
-After transition: new behavior state, weapon changes
-```
+**Phase Effects**:
+- **Phase 2 (75% HP)**:
+  - Boss spins (full rotation, 600ms)
+  - Armor plates fall off (6 animated plates)
+  - Screen shake (200ms, intensity 0.005)
+- **Phase 3 (50% HP)**:
+  - Brief invulnerability (1200ms)
+  - Glowing charge-up (expanding yellow circle)
+  - Speed increase (+30%)
+- **Phase 4 (25% HP)**:
+  - Desperate mode activation
+  - Screen shake (300ms, intensity 0.008)
+  - Red flash effect
+  - Speed increase (+50%)
+  - Attack cooldown reset
+
+Location: `src/systems/boss-gen.js` checkPhaseTransition() and triggerPhaseTransition()
 
 **Why it works**: Memorable moments, teaches boss mechanics, feels epic.
 
 ---
 
-### Pickup Magnetism with Skill Expression
-**Concept**: Pickups drift toward you at close range, but can be "grabbed" early with boost.
+### [DONE] Pickup Magnetism with Skill Expression
+**Implementation**: Dynamic pickup attraction with boost integration (v1.5.1)
 
-**Mechanics**:
-- Within 80 units: Slow drift toward engine
-- Within 40 units: Fast pull-in
-- Boost active: Pull range doubles
-- Skillful play: Chain boost to collect distant pickups
+**Features**:
+- **Slow range**: 80 units, pull strength 40
+- **Fast range**: 40 units, pull strength 120
+- **Boost multiplier**: 2x range when boosting (160/80 units)
+- Velocity-based pull (accelerates pickups toward engine)
+- Scales with distance (closer = faster pull)
 
-[SCAFFOLDING]
-```
-Location: src/systems/spawner.js - updatePickups()
-Calculate distance from engine to each pickup
-If in range, apply velocity toward engine
-Scale velocity by distance (closer = faster)
-If boost active, multiply range by 2
-Prevents tedious precision collection
-```
+**Skill Expression**:
+- Boost to extend collection range
+- Chain boost to grab distant pickups
+- Strategic positioning rewards
+
+Location: `src/core/pickups.js` update() method
 
 **Why it works**: QoL improvement that rewards skill, feels satisfying.
 

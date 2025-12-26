@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v1.5.1' // v1.5.1: Balance audit + endless scaling retune + big-number fixes
+    version: 'v1.5.2' // v1.5.2: Balance audit + endless scaling retune + big-number fixes
 });
 
 const DEVICE_PIXEL_RATIO = typeof window !== 'undefined'

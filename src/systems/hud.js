@@ -160,11 +160,10 @@ export class Hud {
         const { width, height } = this.scene.scale;
         const padding = UI.hudPadding;
         const scale = this.uiScale || 1;
-        // Large left margin to prevent clipping on devices with notches/safe areas
-        // Mobile browsers and notches can clip 50+ pixels on the left
-        const leftMargin = padding + 50;
-        // Right margin matches left for symmetry and safe area protection
-        const rightMargin = padding + 50;
+        // Safe-area padding is handled by the game container; keep a small edge buffer.
+        const edgeMargin = padding + 12;
+        const leftMargin = edgeMargin;
+        const rightMargin = edgeMargin;
 
         this.engineLabel.setPosition(leftMargin * scale, (padding - 2) * scale);
         this.engineWeaponText.setPosition(leftMargin * scale, (padding + 16) * scale);

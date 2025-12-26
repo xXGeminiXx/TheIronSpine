@@ -175,6 +175,111 @@ export function generateBoss(difficulty = 1) {
 }
 
 /**
+ * Cinematic boss arrival sequence.
+ * Creates visual buildup before boss materializes.
+ * @param {object} scene - Phaser scene
+ * @param {object} config - Boss config
+ * @param {object} position - Spawn position {x, y}
+ * @param {function} onComplete - Callback when sequence finishes
+ */
+export function cinematicBossArrival(scene, config, position, onComplete) {
+    const { width, height } = scene.scale;
+
+    // Phase 1: Searchlights sweep (500ms)
+    const searchlights = [];
+    for (let i = 0; i < 3; i++) {
+        const light = scene.add.graphics();
+        light.setDepth(999);
+        light.setScrollFactor(0);
+        searchlights.push(light);
+
+        const startAngle = (i / 3) * Math.PI * 2;
+        scene.tweens.add({
+            targets: { angle: startAngle },
+            angle: startAngle + Math.PI * 2,
+            duration: 500,
+            onUpdate: (tween) => {
+                const angle = tween.targets[0].angle;
+                light.clear();
+                light.lineStyle(40, 0xffcc00, 0.15);
+                light.lineBetween(
+                    width * 0.5,
+                    height * 0.5,
+                    width * 0.5 + Math.cos(angle) * width,
+                    height * 0.5 + Math.sin(angle) * height
+                );
+            },
+            onComplete: () => light.destroy()
+        });
+    }
+
+    // Phase 2: Scan line build-up (700ms, starts at 300ms)
+    scene.time.delayedCall(300, () => {
+        const scanContainer = scene.add.container(position.x, position.y);
+        scanContainer.setDepth(BOSS_DEPTH);
+
+        const scanLines = [];
+        const lineCount = 20;
+        const scanHeight = config.size * 2;
+
+        for (let i = 0; i < lineCount; i++) {
+            const line = scene.add.rectangle(
+                0,
+                -scanHeight / 2 + (i / lineCount) * scanHeight,
+                0,
+                3,
+                0xff8844,
+                0.6
+            );
+            scanLines.push(line);
+            scanContainer.add(line);
+
+            // Expand lines outward
+            scene.tweens.add({
+                targets: line,
+                width: config.size * 2.2,
+                duration: 700,
+                delay: i * 15,
+                ease: 'Cubic.easeOut'
+            });
+        }
+
+        // Phase 3: Silhouette forms (starts at 800ms total)
+        scene.time.delayedCall(500, () => {
+            const silhouette = createBossBody(scene, {
+                ...config,
+                armorColor: 0x000000,
+                coreColor: 0x333333,
+                trimColor: 0x666666
+            });
+            silhouette.setAlpha(0);
+            scanContainer.add(silhouette);
+
+            scene.tweens.add({
+                targets: silhouette,
+                alpha: 0.8,
+                duration: 400,
+                ease: 'Power2'
+            });
+
+            // Phase 4: Color fill and cleanup (starts at 1400ms)
+            scene.time.delayedCall(600, () => {
+                // Fade out scan lines and silhouette
+                scene.tweens.add({
+                    targets: scanContainer,
+                    alpha: 0,
+                    duration: 200,
+                    onComplete: () => scanContainer.destroy()
+                });
+
+                // Spawn actual boss
+                onComplete();
+            });
+        });
+    });
+}
+
+/**
  * Spawn a boss from a configuration.
  * @param {object} scene - Phaser scene
  * @param {object} config - Boss config from generateBoss()
@@ -224,6 +329,7 @@ export function spawnBoss(scene, config, position) {
 
     // Create boss entity
     const boss = {
+        scene, // v1.5.1 Scene reference for phase transitions
         x: position.x,
         y: position.y,
         rotation: 0,
@@ -247,7 +353,12 @@ export function spawnBoss(scene, config, position) {
 
         // Behavior data
         orbitAngle: Math.random() * Math.PI * 2,
-        summonCooldown: 0
+        summonCooldown: 0,
+
+        // v1.5.1 Phase transitions
+        hpPhase: 0, // 0=100-75%, 1=75-50%, 2=50-25%, 3=25-0%
+        transitionActive: false,
+        invulnerable: false
     };
 
     return boss;
@@ -266,6 +377,9 @@ export function updateBoss(boss, train, deltaSeconds) {
 
     const phase = boss.config.phases[boss.currentPhase];
     const engine = train.engine;
+
+    // v1.5.1 Check for HP phase transitions
+    checkPhaseTransition(boss);
 
     // Phase state machine
     switch (boss.phaseState) {
@@ -459,4 +573,134 @@ export function checkWeakPointHit(boss, projectile) {
  */
 export function getBossDamageMultiplier(boss, projectile) {
     return checkWeakPointHit(boss, projectile) ? 2.0 : 1.0;
+}
+
+/**
+ * v1.5.1 - Check for HP-based phase transitions.
+ * @param {object} boss - Boss entity
+ */
+function checkPhaseTransition(boss) {
+    if (!boss || !boss.scene || boss.transitionActive) {
+        return; // Don't interrupt active transitions
+    }
+
+    const hpPercent = boss.hp / boss.maxHp;
+    let newPhase = boss.hpPhase;
+
+    if (hpPercent <= 0.25 && boss.hpPhase < 3) {
+        newPhase = 3; // Desperate phase
+    } else if (hpPercent <= 0.50 && boss.hpPhase < 2) {
+        newPhase = 2; // Power-up phase
+    } else if (hpPercent <= 0.75 && boss.hpPhase < 1) {
+        newPhase = 1; // Enraged phase
+    }
+
+    if (newPhase !== boss.hpPhase) {
+        boss.hpPhase = newPhase;
+        triggerPhaseTransition(boss, newPhase);
+    }
+}
+
+/**
+ * v1.5.1 - Trigger cinematic phase transition effects.
+ * @param {object} boss - Boss entity
+ * @param {number} newPhase - New HP phase (1-3)
+ */
+function triggerPhaseTransition(boss, newPhase) {
+    boss.transitionActive = true;
+    const scene = boss.scene || (boss.container && boss.container.scene);
+
+    if (!scene) {
+        boss.transitionActive = false;
+        return;
+    }
+
+    // Visual effects based on phase
+    if (newPhase === 1) {
+        // Phase 2 (75% HP): Spin and shed armor plates
+        if (scene.cameras && scene.cameras.main) {
+            scene.cameras.main.shake(200, 0.005);
+        }
+
+        // Spin animation
+        if (scene.tweens && boss.container) {
+            scene.tweens.add({
+                targets: boss.container,
+                rotation: boss.container.rotation + Math.PI * 2,
+                duration: 600,
+                ease: 'Cubic.easeOut'
+            });
+        }
+
+        // Spawn armor plates
+        if (scene.vfx) {
+            scene.vfx.spawnArmorPlates({ x: boss.x, y: boss.y }, boss.radius);
+        }
+
+        // Transition complete
+        if (scene.time) {
+            scene.time.delayedCall(600, () => {
+                boss.transitionActive = false;
+            });
+        } else {
+            boss.transitionActive = false;
+        }
+
+    } else if (newPhase === 2) {
+        // Phase 3 (50% HP): Invulnerability and charge-up
+        boss.invulnerable = true;
+
+        // Charge-up glow
+        if (scene.add) {
+            const chargeGlow = scene.add.circle(boss.x, boss.y, boss.radius, 0xffcc00, 0.3);
+            chargeGlow.setDepth(999);
+
+            if (scene.tweens) {
+                scene.tweens.add({
+                    targets: chargeGlow,
+                    scale: 1.8,
+                    alpha: 0,
+                    duration: 1200,
+                    ease: 'Power2',
+                    onComplete: () => chargeGlow.destroy()
+                });
+            }
+        }
+
+        // Speed increase
+        boss.speed *= 1.3;
+
+        if (scene.time) {
+            scene.time.delayedCall(1200, () => {
+                boss.invulnerable = false;
+                boss.transitionActive = false;
+            });
+        } else {
+            boss.invulnerable = false;
+            boss.transitionActive = false;
+        }
+
+    } else if (newPhase === 3) {
+        // Phase 4 (25% HP): Desperate mode
+        if (scene.cameras && scene.cameras.main) {
+            scene.cameras.main.shake(300, 0.008);
+        }
+
+        // Flash effect
+        if (scene.screenEffects) {
+            scene.screenEffects.flash(0xff4444, 400, 0.4);
+        }
+
+        // Increase speed and attack rate
+        boss.speed *= 1.5;
+        boss.attackCooldown = 0;
+
+        if (scene.time) {
+            scene.time.delayedCall(400, () => {
+                boss.transitionActive = false;
+            });
+        } else {
+            boss.transitionActive = false;
+        }
+    }
 }

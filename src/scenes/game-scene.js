@@ -30,6 +30,7 @@ import {
     COLOR_KEYS,
     COMBO,
     CRIT,
+    DEV_ASSERTIONS,
     DROP_PROTECTION,
     ENDLESS,
     EFFECTS,
@@ -55,6 +56,7 @@ import { Hud } from '../systems/hud.js';
 import { MobileControls } from '../systems/mobile-controls.js';
 import { AudioManager } from '../systems/audio.js';
 import { VfxSystem } from '../systems/vfx.js';
+import { runBalanceAudit } from '../core/balance-audit.js';
 import {
     DropProtection,
     createDeniedFlash,
@@ -222,6 +224,10 @@ export class GameScene extends Phaser.Scene {
             charge: 0,
             ready: false
         };
+
+        if (DEV_ASSERTIONS) {
+            runBalanceAudit({ difficulty: SETTINGS.difficulty });
+        }
 
         // v1.4.0 NEW SYSTEMS
         this.telegraph = new TelegraphSystem(this);

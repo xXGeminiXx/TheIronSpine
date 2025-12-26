@@ -18,8 +18,40 @@ export class PickupManager {
 
     update(deltaSeconds, engine, cars = null) {
         const now = this.scene.time.now / 1000;
+
+        // v1.5.1 Check if boost is active (train has isBoosting property)
+        const train = this.scene.train;
+        const isBoostActive = train && train.isBoosting;
+
         for (let index = this.pickups.length - 1; index >= 0; index -= 1) {
             const pickup = this.pickups[index];
+
+            // v1.5.1 Pickup Magnetism - drift toward engine when close
+            if (engine) {
+                const dx = engine.x - pickup.x;
+                const dy = engine.y - pickup.y;
+                const distSq = dx * dx + dy * dy;
+
+                // Range multiplier (2x when boosting)
+                const rangeMult = isBoostActive ? 2 : 1;
+                const slowRange = 80 * rangeMult;
+                const fastRange = 40 * rangeMult;
+
+                const slowRangeSq = slowRange * slowRange;
+                const fastRangeSq = fastRange * fastRange;
+
+                if (distSq <= slowRangeSq) {
+                    const dist = Math.sqrt(distSq);
+                    if (dist > 0.1) {
+                        const pullStrength = distSq <= fastRangeSq ? 120 : 40;
+                        const pull = pullStrength * deltaSeconds / dist;
+
+                        pickup.velocity.x += dx * pull;
+                        pickup.velocity.y += dy * pull;
+                    }
+                }
+            }
+
             pickup.x += pickup.velocity.x * deltaSeconds;
             pickup.y += pickup.velocity.y * deltaSeconds;
             pickup.sprite.x = pickup.x;

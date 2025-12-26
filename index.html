@@ -10,6 +10,10 @@
     <style>
         :root {
             color-scheme: light;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
         }
 
         html, body {
@@ -17,11 +21,6 @@
             height: 100%;
             margin: 0;
             padding: 0;
-            /* Use safe-area-insets for notched devices */
-            padding-top: env(safe-area-inset-top, 0);
-            padding-bottom: env(safe-area-inset-bottom, 0);
-            padding-left: env(safe-area-inset-left, 0);
-            padding-right: env(safe-area-inset-right, 0);
         }
 
         body {
@@ -38,8 +37,9 @@
             height: 100%;
             position: fixed;
             inset: 0;
+            box-sizing: border-box;
             /* Account for safe areas */
-            padding-top: env(safe-area-inset-top, 0);
+            padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
         }
 
         canvas {
