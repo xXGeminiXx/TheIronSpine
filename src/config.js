@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v2.0.1' // v2.0.1: Projectile cleanup + enemy destroy guards
+    version: 'v2.0.2' // v2.0.2: HUD scaling + safe edge anchoring
 });
 
 export const SEEDING = Object.freeze({

@@ -43,6 +43,14 @@ When updating this game, follow these conventions:
 
 ---
 
+## [2.0.2] - 2025-12-26 (HUD Fixes)
+
+### Fixed
+- Kept right-side HUD text anchored on screen at larger UI scales.
+- Corrected HUD layout anchoring for centered and bottom UI elements.
+
+---
+
 ## [2.0.1] - 2025-12-26 (Bugfixes)
 
 ### Fixed

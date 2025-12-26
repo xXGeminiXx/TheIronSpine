@@ -199,63 +199,64 @@ export class Hud {
         const scale = this.uiScale || 1;
         // Safe-area padding is handled by the game container; keep a small edge buffer.
         const edgeMargin = padding + 12;
-        const leftMargin = edgeMargin;
-        const rightMargin = edgeMargin;
+        const textMargin = edgeMargin * scale;
+        const textPadding = padding * scale;
 
         // Update text word wrap widths dynamically based on screen size
         // This ensures text never overflows regardless of screen size
         const maxRightTextWidth = Math.max(150, width * 0.3);
+        const wrappedRightWidth = maxRightTextWidth / scale;
         if (this.killText) {
-            this.killText.setWordWrapWidth(maxRightTextWidth, false);
+            this.killText.setWordWrapWidth(wrappedRightWidth, false);
         }
         if (this.comboText) {
-            this.comboText.setWordWrapWidth(maxRightTextWidth, false);
+            this.comboText.setWordWrapWidth(wrappedRightWidth, false);
         }
 
-        this.engineLabel.setPosition(leftMargin * scale, (padding - 2) * scale);
-        this.engineWeaponText.setPosition(leftMargin * scale, (padding + 16) * scale);
+        this.engineLabel.setPosition(textMargin, textPadding - 2 * scale);
+        this.engineWeaponText.setPosition(textMargin, textPadding + 16 * scale);
 
         this.engineBar = {
-            x: leftMargin + 70,
+            x: edgeMargin + 70,
             y: padding + 2,
             width: 200,
             height: 12
         };
         this.carBar = {
-            x: leftMargin,
+            x: edgeMargin,
             y: padding + 36
         };
         this.pulseBar = {
-            x: leftMargin,
+            x: edgeMargin,
             y: padding + 58,
             width: 180,
             height: 10
         };
-        this.pulseText.setPosition(leftMargin * scale, (padding + 70) * scale);
+        this.pulseText.setPosition(textMargin, textPadding + 70 * scale);
 
-        this.timerText.setPosition(width * 0.5 * scale, padding * scale);
-        this.waveText.setPosition(width * 0.5 * scale, (padding + 22) * scale);
-        this.killText.setPosition((width - rightMargin) * scale, padding * scale);
-        this.mergeText.setPosition(width * 0.5 * scale, 120 * scale);
+        this.timerText.setPosition(width * 0.5, textPadding);
+        this.waveText.setPosition(width * 0.5, textPadding + 22 * scale);
+        this.killText.setPosition(width - textMargin, textPadding);
+        this.mergeText.setPosition(width * 0.5, 120 * scale);
 
         // v1.4.0 New HUD elements positioning
-        this.comboText.setPosition((width - rightMargin) * scale, (padding + 32) * scale);
-        this.weatherText.setPosition(width * 0.5 * scale, (padding + 46) * scale);
+        this.comboText.setPosition(width - textMargin, textPadding + 32 * scale);
+        this.weatherText.setPosition(width * 0.5, textPadding + 46 * scale);
 
         // Station buff display (below weather)
-        this.stationBuffText.setPosition(width * 0.5 * scale, (padding + 70) * scale);
+        this.stationBuffText.setPosition(width * 0.5, textPadding + 70 * scale);
 
         if (this.debugText) {
-            this.debugText.setPosition(leftMargin * scale, (height - 80) * scale);
+            this.debugText.setPosition(textMargin, height - 80 * scale);
         }
         this.versionText.setPosition(
-            (width - rightMargin) * scale,
-            height * scale - padding * scale
+            width - textMargin,
+            height - textPadding
         );
 
         // Position seed text below wave text
         if (this.seedText) {
-            this.seedText.setPosition(leftMargin * scale, (padding + 90) * scale);
+            this.seedText.setPosition(textMargin, textPadding + 90 * scale);
         }
     }
 
@@ -506,8 +507,9 @@ export class Hud {
         this.stationBuffText.setColor(buff.color);
 
         // Draw buff icon (simple colored circle)
-        const { width, height } = this.scene.scale;
-        const iconX = width * 0.5 - 90;
+        const { width } = this.scene.scale;
+        const scale = this.uiScale || 1;
+        const iconX = width * 0.5 / scale - 90;
         const iconY = UI.hudPadding + 76;
         const iconRadius = 8;
 
@@ -550,8 +552,9 @@ export class Hud {
             return;
         }
 
-        const width = this.scene.scale.width;
-        const height = this.scene.scale.height;
+        const scale = this.uiScale || 1;
+        const width = this.scene.scale.width / scale;
+        const height = this.scene.scale.height / scale;
         const centerX = width * 0.5;
         const centerY = height * 0.5;
         const halfWidth = width * 0.5 - DAMAGE_PING_MARGIN;
