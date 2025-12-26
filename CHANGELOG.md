@@ -43,6 +43,13 @@ When updating this game, follow these conventions:
 
 ---
 
+## [2.0.3] - 2025-12-26 (Threat Indicator Visuals)
+
+### Changed
+- Redesigned off-screen threat indicators with shafted pointers and cleaner ring attachment.
+
+---
+
 ## [2.0.2] - 2025-12-26 (HUD Fixes)
 
 ### Fixed

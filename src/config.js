@@ -109,7 +109,7 @@ export const GAME = Object.freeze({
 });
 
 export const BUILD = Object.freeze({
-    version: 'v2.0.2' // v2.0.2: HUD scaling + safe edge anchoring
+    version: 'v2.0.3' // v2.0.3: Threat indicator redesign
 });
 
 export const SEEDING = Object.freeze({

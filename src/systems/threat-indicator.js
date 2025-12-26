@@ -25,7 +25,12 @@ import { GAME } from '../config.js';
 const INDICATOR_DEPTH = 25; // Above HUD
 const MAX_INDICATORS = 8;
 const EDGE_MARGIN = 40; // Distance from screen edge
-const ARROW_SIZE = 16;
+const RING_RADIUS = 7;
+const SHAFT_LENGTH = 14;
+const SHAFT_WIDTH = 3;
+const HEAD_LENGTH = 10;
+const HEAD_WIDTH = 14;
+const OUTLINE_COLOR = 0x000000;
 const PULSE_SPEED = 3;
 
 const THREAT_COLORS = Object.freeze({
@@ -67,23 +72,10 @@ export class ThreatIndicatorSystem {
         container.setDepth(INDICATOR_DEPTH);
         container.setScrollFactor(0); // Fixed to screen
 
-        // Arrow triangle
-        const arrow = this.scene.add.triangle(
-            0, 0,
-            0, -ARROW_SIZE,
-            ARROW_SIZE * 0.7, ARROW_SIZE * 0.5,
-            -ARROW_SIZE * 0.7, ARROW_SIZE * 0.5,
-            0xffffff
-        );
-        arrow.setStrokeStyle(2, 0x000000, 0.8);
-
-        // Pulse ring for emphasis
-        const ring = this.scene.add.circle(0, 0, ARROW_SIZE * 1.2, 0xffffff, 0);
-        ring.setStrokeStyle(1.5, 0xffffff, 0.5);
-
-        container.add([ring, arrow]);
-        container.arrow = arrow;
-        container.ring = ring;
+        const indicator = this.scene.add.graphics();
+        container.add(indicator);
+        container.indicator = indicator;
+        container.currentColor = null;
 
         return container;
     }
@@ -168,13 +160,58 @@ export class ThreatIndicatorSystem {
         // Subtract PI to flip direction, add PI/2 to rotate triangle
         indicator.setRotation(angle - Math.PI / 2);
 
-        // Update color
-        indicator.arrow.setFillStyle(color);
-        indicator.ring.setStrokeStyle(1.5, color, 0.5);
+        if (indicator.currentColor !== color) {
+            this.drawIndicator(indicator, color);
+            indicator.currentColor = color;
+        }
 
         // Pulse effect
         const pulse = 1 + 0.15 * Math.sin(this.pulseTimer * PULSE_SPEED);
         indicator.setScale(pulse);
+    }
+
+    drawIndicator(indicator, color) {
+        const gfx = indicator.indicator;
+        gfx.clear();
+
+        const ringRadius = RING_RADIUS;
+        const stemStartY = -ringRadius + 1;
+        const stemEndY = stemStartY - SHAFT_LENGTH;
+        const tipY = stemEndY - HEAD_LENGTH;
+        const halfHead = HEAD_WIDTH * 0.5;
+
+        // Ring with inner core for anchoring.
+        gfx.lineStyle(3, OUTLINE_COLOR, 0.6);
+        gfx.strokeCircle(0, 0, ringRadius + 1);
+        gfx.lineStyle(2, color, 0.9);
+        gfx.strokeCircle(0, 0, ringRadius);
+        gfx.fillStyle(0x000000, 0.25);
+        gfx.fillCircle(0, 0, ringRadius - 1);
+        gfx.fillStyle(color, 0.85);
+        gfx.fillCircle(0, 0, ringRadius * 0.45);
+
+        // Shaft line for clearer direction.
+        gfx.lineStyle(SHAFT_WIDTH + 1, OUTLINE_COLOR, 0.6);
+        gfx.beginPath();
+        gfx.moveTo(0, stemStartY);
+        gfx.lineTo(0, stemEndY);
+        gfx.strokePath();
+        gfx.lineStyle(SHAFT_WIDTH, color, 0.95);
+        gfx.beginPath();
+        gfx.moveTo(0, stemStartY);
+        gfx.lineTo(0, stemEndY);
+        gfx.strokePath();
+
+        // Arrow head.
+        gfx.fillStyle(color, 1);
+        gfx.beginPath();
+        gfx.moveTo(0, tipY);
+        gfx.lineTo(halfHead, stemEndY + 1);
+        gfx.lineTo(-halfHead, stemEndY + 1);
+        gfx.closePath();
+        gfx.fillPath();
+        gfx.lineStyle(2, OUTLINE_COLOR, 0.7);
+        gfx.strokePath();
     }
 
     getEdgePoint(angle, camera) {
