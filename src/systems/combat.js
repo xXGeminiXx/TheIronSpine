@@ -787,6 +787,11 @@ export class CombatSystem {
             sprite.setAlpha(1.0);
         }
 
+        // v1.5.2 Power scaling - car count multiplier for exponential growth
+        const carCount = this.train.getWeaponCars().length;
+        const carCountMultiplier = 1 + Math.sqrt(carCount) * 0.15; // √100 = 10, so 100 cars = 2.5x damage
+        const scaledDamage = weaponStats.damage * carCountMultiplier;
+
         nextProjectileId += 1;
         const projectileId = nextProjectileId;
         const projectile = {
@@ -801,7 +806,7 @@ export class CombatSystem {
             speed,
             range: weaponStats.range,
             travelled: 0,
-            damage: weaponStats.damage,
+            damage: scaledDamage,
             slowPercent: weaponStats.slowPercent || 0,
             slowDuration: weaponStats.slowDuration || 0,
             armorPierce: weaponStats.armorPierce || 0,

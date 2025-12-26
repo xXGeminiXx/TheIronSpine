@@ -345,6 +345,12 @@ export class GameScene extends Phaser.Scene {
         if (this.train.boostRemaining > previousBoost) {
             this.audio.playBoost();
         }
+
+        // v1.5.2 Apply headlight vacuum effect
+        if (typeof this.train.applyHeadlightVacuum === 'function') {
+            this.train.applyHeadlightVacuum(this.pickupManager, this.combatSystem, deltaSeconds);
+        }
+
         this.audio.updateEngine(
             this.train.currentSpeed / TRAIN.engineSpeed,
             this.train.boostRemaining > 0

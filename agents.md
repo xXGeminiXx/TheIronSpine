@@ -114,10 +114,26 @@ This project exists because David hit a paywall in a game he loved. No energy sy
 - **Endless scaling retune** (v1.5.2) - Log-sqrt curve for smoother infinite mode
 - **Mobile safe-area padding** (v1.5.2) - Container-level safe area handling
 - **Resize-aware pause button** (v1.5.2) - Repositions on orientation changes
+- **Cinematic boss arrival** (v1.5.1) - Searchlights, scan lines, 1.6s sequence
+- **Boss phase transitions** (v1.5.1) - HP-based at 75%, 50%, 25% with invulnerability
+- **Damage numbers system** (v1.5.1) - Contextual styling (critical, overkill, pierced, slow)
+- **Particle debris** (v1.5.1) - Metal shards, impact debris, armor plates, critical bursts
+- **Pickup magnetism** (v1.5.1) - 2x range when boosting, smooth collection
+- **Headlight vacuum** (v1.5.2) - Light cone pulls pickups (200), pushes enemies (150)
+- **Power scaling** (v1.5.2) - Square root car count multiplier (√100 = 2.5x damage)
 
 **New Art Systems (v1.3):**
 - `src/art/world-gen.js` - Parallax background with mountain terrain, debris, wrecks, signs
 - `src/art/projectile-visuals.js` - Unique shapes and trails per weapon color (tracers, orbs, bolts)
+
+**New Polish Systems (v1.5.1):**
+- `src/systems/damage-numbers.js` - Pooled damage number display with contextual styling
+- Cinematic boss arrival in `src/systems/boss-gen.js` - 4-phase sequence with searchlights
+- Boss phase transitions in `src/systems/boss-gen.js` - HP-based invulnerability phases
+- Particle debris methods in `src/systems/vfx.js` - Metal shards, impact, armor plates, critical bursts
+- Pickup magnetism in `src/core/pickups.js` - Distance-based pull with boost multiplier
+- Headlight vacuum in `src/core/train.js` - Geometric cone intersection with force application (v1.5.2)
+- Power scaling in `src/systems/combat.js` - Car count multiplier for exponential growth (v1.5.2)
 
 **New Combat Systems (v1.4.0):**
 - `src/systems/telegraph.js` - Visual warnings before enemy attacks (Rangers, Champions, Bosses, Armored)
@@ -232,6 +248,7 @@ requestAnimationFrame(gameLoop);
 | `src/config.js` | Central configuration for all game values. **EXTENDED for 100 waves, milestones, difficulty.** |
 | `src/art/` | Procedural art systems (world-gen, projectile-visuals). |
 | `src/core/` | Core game logic (train, merge, pickups, math, **difficulty**). |
+| `src/core/balance-audit.js` | Balance audit console report (scaling + TTK sanity checks). |
 | `src/systems/` | Game systems (combat, spawner, audio, hud, achievements, **telegraph, threat-indicator, combo, critical-hits, screen-effects, weather, boss-gen**). |
 | `src/scenes/` | Phaser scenes (game, menu, end, tutorial, settings). |
 | `src/ui/` | UI components (**scrollbar**). |
@@ -332,6 +349,9 @@ requestAnimationFrame(gameLoop);
    - Verify ES6 module imports (not CommonJS require())
    - Test new systems in game loop
    - Check for console errors
+5. **Update MCP memory** after major changes
+   - Store a concise summary of code state + new ideas
+   - Capture balance or scaling shifts that future LLMs need to know
 
 ### Configuration Architecture
 - **src/config.js is the source of truth** for all game balance

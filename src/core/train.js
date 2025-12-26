@@ -348,6 +348,74 @@ export class Train {
             innerRightX,
             innerRightY
         );
+
+        // v1.5.2 Store cone data for vacuum effect
+        this.headlightCone = {
+            baseX, baseY, angle, length, spread
+        };
+    }
+
+    /**
+     * v1.5.2 - Apply vacuum effect from headlight cone.
+     * Pulls in pickups and pushes enemies away.
+     */
+    applyHeadlightVacuum(pickups, enemies, deltaSeconds) {
+        if (!this.headlightCone || !this.engine) {
+            return;
+        }
+
+        const { baseX, baseY, angle, length, spread } = this.headlightCone;
+        const vacuumStrength = 200; // Pull strength for pickups
+        const repelStrength = 150;  // Push strength for enemies
+
+        // Helper to check if point is in cone
+        const isInCone = (x, y) => {
+            const dx = x - baseX;
+            const dy = y - baseY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > length || dist < 10) return false;
+
+            const pointAngle = Math.atan2(dy, dx);
+            let angleDiff = pointAngle - angle;
+
+            // Normalize angle difference to [-PI, PI]
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+            return Math.abs(angleDiff) <= spread * 0.5;
+        };
+
+        // Pull in pickups
+        if (pickups && pickups.pickups) {
+            for (const pickup of pickups.pickups) {
+                if (isInCone(pickup.x, pickup.y)) {
+                    const dx = baseX - pickup.x;
+                    const dy = baseY - pickup.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0.1) {
+                        const pull = vacuumStrength * deltaSeconds / dist;
+                        pickup.velocity.x += dx * pull;
+                        pickup.velocity.y += dy * pull;
+                    }
+                }
+            }
+        }
+
+        // Push enemies away
+        if (enemies && enemies.enemies) {
+            for (const enemy of enemies.enemies) {
+                if (isInCone(enemy.x, enemy.y)) {
+                    const dx = enemy.x - baseX;
+                    const dy = enemy.y - baseY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0.1) {
+                        const push = repelStrength * deltaSeconds / dist;
+                        enemy.x += dx * push;
+                        enemy.y += dy * push;
+                    }
+                }
+            }
+        }
     }
 
     getFrameFollowFactor(deltaSeconds) {

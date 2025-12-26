@@ -11,6 +11,8 @@ Project-specific instructions for Claude Code. These override defaults when work
 - v1.3.0: Purple/Orange cars, visual systems (2025-12-25)
 - v1.4.0: Combat depth, weather, procedural bosses (2025-12-25 Night)
 - v1.5.0: 100 waves, difficulty tiers, UI systems (2025-12-25 Late Night)
+- v1.5.1: Polish & juice (boss cinematic, phase transitions, damage numbers, magnetism)
+- v1.5.2: Balance audit + power scaling + headlight vacuum (2025-12-26)
 
 Free, open-source, MIT licensed.
 
@@ -19,6 +21,7 @@ Free, open-source, MIT licensed.
 - **Update achievements** when adding new mechanics or milestones
 - **Test integration** before committing major system changes
 - **Document new config** values with inline comments
+- **Store an MCP memory summary** after major changes (code state + key ideas)
 
 ## Project Summary
 
@@ -319,6 +322,8 @@ Crit system:       Yellow 10% / 2.5x, Purple 7% / 2.2x, Base 5% / 2.0x
 Weather:           5 types (Clear, Fog, Storm, Dust, Ash) with modifiers
 Bosses:            Procedurally generated every 10 waves (5-10 with difficulty)
 Achievements:      35+ achievements with gameplay bonuses, titles, 10 new in v1.5.0
+Headlight Vacuum:  Pulls pickups (strength 200), repels enemies (strength 150) in light cone
+Power Scaling:     Square root scaling: 1 + √(carCount) × 0.15 (100 cars = 2.5x damage)
 ```
 
 ## Debug Mode (Implemented)
